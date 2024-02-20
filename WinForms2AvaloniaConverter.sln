@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34607.119
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinForms2AvaloniaConverter", "WinForms2AvaloniaConverter.csproj", "{0B64A27D-6BB6-451B-98B8-78C89FC164AF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {933049B0-0FBD-4DC4-86DD-FAA1F5D7A654}
+	EndGlobalSection
+EndGlobal
