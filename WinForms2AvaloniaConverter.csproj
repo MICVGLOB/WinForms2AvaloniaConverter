@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFrameworks>net6.0-windows;net472</TargetFrameworks>
+    <Nullable>disable</Nullable>
+	  <EnableDefaultItems>False</EnableDefaultItems>
+
+	  <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>WAConverter</RootNamespace>
     <AssemblyName>WAConverter</AssemblyName>
-    <AppendTargetFrameworkToOutputPath>False</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
