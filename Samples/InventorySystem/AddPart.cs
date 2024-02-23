@@ -11,7 +11,7 @@ using System.Windows.Forms;
 
 namespace InventorySystem
 {
-    public partial class AddPartForm : Form
+    public partial class AddPartForm : WAConverter.WAForm
     {
         public AddPartForm()
         {

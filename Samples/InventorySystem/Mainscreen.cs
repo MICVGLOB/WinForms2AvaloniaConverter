@@ -10,7 +10,7 @@ using System.Windows.Forms;
 
 namespace InventorySystem
 {
-    public partial class Mainscreen : Form
+    public partial class Mainscreen : WAConverter.WAForm
     {
         public int currPart { get; set; }
         public int currProd { get; set; }

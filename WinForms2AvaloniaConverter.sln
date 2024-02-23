@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34607.119
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinForms2AvaloniaConverter", "WinForms2AvaloniaConverter.csproj", "{0B64A27D-6BB6-451B-98B8-78C89FC164AF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinForms2AvaloniaConverter", "WinForms2AvaloniaConverter.csproj", "{0B64A27D-6BB6-451B-98B8-78C89FC164AF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{5CB1C038-4055-4621-AC83-E9EA24485C8E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventorySystem", "Samples\InventorySystem\InventorySystem.csproj", "{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,9 +19,16 @@ Global
 		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B64A27D-6BB6-451B-98B8-78C89FC164AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09} = {5CB1C038-4055-4621-AC83-E9EA24485C8E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {933049B0-0FBD-4DC4-86DD-FAA1F5D7A654}

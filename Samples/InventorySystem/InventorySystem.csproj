@@ -127,5 +127,11 @@
     <Folder Include="bin\Release\" />
     <Folder Include="obj\Debug\TempPE\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\WinForms2AvaloniaConverter.csproj">
+      <Project>{0b64a27d-6bb6-451b-98b8-78c89fc164af}</Project>
+      <Name>WinForms2AvaloniaConverter</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

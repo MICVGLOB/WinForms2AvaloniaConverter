@@ -4,6 +4,7 @@
     <TargetFrameworks>net6.0-windows;net472</TargetFrameworks>
     <Nullable>disable</Nullable>
 	  <EnableDefaultItems>False</EnableDefaultItems>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
 	  <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -14,6 +15,12 @@
   <ItemGroup>
     <Compile Remove="WAConverter\Templates\CodeFileTemplate.cs" />
     <Compile Remove="WAConverter\Templates\ViewModelClassTemplate.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="WAConverter\Converter.cs" />
+    <Compile Include="WAConverter\Forms.cs" />
+    <Compile Include="WAConverter\Utils.cs" />
   </ItemGroup>
 
   <ItemGroup>
