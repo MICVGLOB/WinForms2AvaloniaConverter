@@ -778,7 +778,7 @@ namespace WAConverter
         private void AddResXFiles(string rootTypeName)
         {
             string dir = Directory.GetCurrentDirectory();
-            while (Path.GetFileName(dir) != "Source" && dir != null)
+            while (!Directory.GetFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly).Any() && dir != null)
                 dir = Path.GetDirectoryName(dir);
             if (dir == null) return;
             string dirConv = Directory.GetCurrentDirectory() + "\\Converted";
