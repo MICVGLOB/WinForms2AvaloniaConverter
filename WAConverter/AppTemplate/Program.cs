@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using System;
 
-namespace InventorySystemAvalonia;
+namespace @NamespaceName@;
 
 class Program
 {

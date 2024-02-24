@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace InventorySystemAvalonia;
+namespace @NamespaceName@;
 
 public partial class MainWindow : Window
 {
