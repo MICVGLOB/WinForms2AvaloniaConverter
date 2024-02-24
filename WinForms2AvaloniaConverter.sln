@@ -9,8 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{5CB1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventorySystem", "Samples\InventorySystem\InventorySystem.csproj", "{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InventorySystemAvalonia", "Samples\InventorySystemAvalonia\InventorySystemAvalonia.csproj", "{DA7F4339-A0D4-44F8-9218-660CA8030F73}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,17 +23,12 @@ Global
 		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DA7F4339-A0D4-44F8-9218-660CA8030F73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DA7F4339-A0D4-44F8-9218-660CA8030F73}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DA7F4339-A0D4-44F8-9218-660CA8030F73}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DA7F4339-A0D4-44F8-9218-660CA8030F73}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{48DCA82F-F0F1-4BE9-8D99-4AE276215F09} = {5CB1C038-4055-4621-AC83-E9EA24485C8E}
-		{DA7F4339-A0D4-44F8-9218-660CA8030F73} = {5CB1C038-4055-4621-AC83-E9EA24485C8E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {933049B0-0FBD-4DC4-86DD-FAA1F5D7A654}
