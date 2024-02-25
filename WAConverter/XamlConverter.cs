@@ -614,8 +614,6 @@ namespace WAConverter
                 { "mxe", "clr-namespace:Eremex.AvaloniaUI.Controls.Editors;assembly=Eremex.Avalonia.Controls" },
                 { "mxpg", "clr-namespace:Eremex.AvaloniaUI.Controls.PropertyGrid;assembly=Eremex.Avalonia.Controls" },
                 { "mxb", "clr-namespace:Eremex.AvaloniaUI.Controls.Bars;assembly=Eremex.Avalonia.Controls" },
-                { "gf", "clr-namespace:Prosoft.ECAD.Drawing.AvaloniaControls;assembly=DeltaDesign.Drawing" },
-                { "uib", "clr-namespace:Prosoft.ECAD.UI.Base;assembly=DeltaDesign.UI.Base" },
                 { "mxu", "clr-namespace:Eremex.AvaloniaUI.Controls.Utils;assembly=Eremex.Avalonia.Controls" },
                 { "p", $"clr-namespace:{rootNamespace}.{rootTypeName}" },
             };
