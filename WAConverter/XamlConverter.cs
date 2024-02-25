@@ -19,8 +19,6 @@ namespace WAConverter
     {
         const string avaloniaVersion = "11.0.8";
 
-        #region DevExpress LayoutControl to Avalonia Grid conversion
-        #endregion
         const string controlsVersion = "0.0.49-demo";
 
         string[] ignoredControls = new string[]
@@ -35,7 +33,9 @@ namespace WAConverter
             "VCrkScrollBar",
             "VGridVertScrollBar",
             "VGridHorzScrollBar",
-            "FindControl"
+            "FindControl",
+            "HScrollBar",
+            "VScrollBar"
         };
         Dictionary<string, string> namespaceMapping;
 
@@ -52,6 +52,7 @@ namespace WAConverter
         {
             object[,] mappings = new object[,] {
 				//!!! DO not add x:Name here. It is generated without mappings
+
 				{ "mxtl:TreeListControl", new string[,] {
                         { "Columns", "Columns" }
                     }
@@ -253,11 +254,29 @@ namespace WAConverter
             string propertyOwnerName = (src as Control)?.Name;
             if ((pi.Name == "Text" || pi.Name == "Caption") && propertyOwnerName != null)
             {
-                string value = $"{{{$"x:Static p:{rootTypeName}.{propertyOwnerName}_{pi.Name}"}}}";
-                SetAttribute(node, propertyName, value);
+                SetLocalizableProperty(node, propertyName, pi, propertyOwnerName, src);
                 return true;
             }
             return false;
+        }
+
+        bool ShouldSetLocalizableProperty()
+        {
+            return false; //TODO detect is resx contains localizable value for a property
+        }
+        private void SetLocalizableProperty(XmlElement node, string propertyName, PropertyInfo pi, string propertyOwnerName, object instance)
+        {
+            string value = "";
+            if (ShouldSetLocalizableProperty())
+            {
+                value = $"{{{$"x:Static p:{rootTypeName}.{propertyOwnerName}_{pi.Name}"}}}";
+
+            }
+            else
+            {
+                value = (string)pi.GetValue(instance);
+            }
+            SetAttribute(node, propertyName, value);
         }
 
         private Dictionary<string, object> ConvertToDictionary(object[,] mappings)
@@ -565,10 +584,11 @@ namespace WAConverter
         {
             typesMapping = new Dictionary<Type, string>
             {
-{ typeof(GroupBox), "Grid" },
+                { typeof(GroupBox), "Grid" },
                 { typeof(NumericUpDown), "mxe:SpinEditor" },
                 { typeof(ComboBox), "mxe:ComboBoxEditor" },
                 { typeof(CheckBox), "mxe:CheckEditor" },
+                { typeof(DataGridView), "mxtl:TreeListControl" },
 };
         }
 
@@ -713,7 +733,7 @@ namespace WAConverter
                 {
                     SetAttribute(currentNode, "Width", target.Width.ToString());
                     SetAttribute(currentNode, "Height", target.Height.ToString());
-                    SetAttribute(currentNode, "Title", $"{{{$"x:Static p:{rootTypeName}.Title"}}}");
+                    SetLocalizableProperty(currentNode, "Title", target.GetType().GetProperty("Text"), "Text", target);
                 }
                 doc.AppendChild(currentNode);
                 ConvertControl(target, currentNode, doc);
