@@ -1,21 +1,5 @@
 ﻿
 
-/*using DevExpress.Utils;
-using DevExpress.Utils.Controls;
-using DevExpress.Utils.Svg;
-using DevExpress.XtraEditors;
-using DevExpress.XtraEditors.Repository;
-using DevExpress.XtraGrid;
-using DevExpress.XtraLayout;
-using DevExpress.XtraLayout.Customization;
-using DevExpress.XtraTab;
-using DevExpress.XtraTreeList;
-using DevExpress.XtraTreeList.Columns;
-using DevExpress.XtraVerticalGrid;
-
-using Prosoft.ECAD.API.Graphics;
-using Prosoft.ECAD.UI.Base;
-*/
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,324 +20,6 @@ namespace WAConverter
         const string avaloniaVersion = "11.0.8";
 
         #region DevExpress LayoutControl to Avalonia Grid conversion
-        /*
-                 void ConvertLayoutControl(LayoutControl layoutControl, XmlNode convertedParent, XmlDocument doc)
-                    {
-                    ConvertLayoutControlItem(layoutControl.Root, convertedParent, doc, -1, -1, 1);
-                    }
-                void ConvertLayoutControlItem(BaseLayoutItem currentLayoutItem, XmlNode convertedParent, XmlDocument doc, int layoutRow, int layoutColumn, int colSpan)
-                {
-                    string currentNodeType = GetMappedType(currentLayoutItem.GetType());
-                    XmlElement currentNode = null;
-                    if (currentNodeType != null)
-                    {
-                        if (currentLayoutItem is LayoutGroup lg && (!lg.GroupBordersVisible || !lg.TextVisible))
-                            currentNodeType = typesMapping[typeof(PanelControl)];
-                        currentNode = CreateElement(doc, currentNodeType);
-                        InitName(currentLayoutItem, currentNode);
-                        ApplyRowAndColumn(currentNode, layoutRow, layoutColumn, colSpan);
-                        convertedParent.AppendChild(currentNode);
-                    }
-                    if (currentLayoutItem is LayoutGroup layoutGroup)
-                    {
-                        var childNode = CreateElement(doc, "Grid");
-                        currentNode.AppendChild(childNode);
-                        currentNode = childNode;
-                        var items = new LayoutControlWalker(layoutGroup).ArrangeElements(new OptionsFocus(null) { MoveFocusDirection = MoveFocusDirection.AcrossThenDown });
-                        List<BaseLayoutItem> li = new List<BaseLayoutItem>();
-                        if (items != null)
-                        {
-                            foreach (var item in items)
-                            {
-                                LayoutItemContainer gr = item as LayoutItemContainer;
-                                if (gr != null)
-                                {
-                                    li.Add(gr);
-                                    continue;
-                                }
-                                LayoutControlItem litem = item as LayoutControlItem;
-                                if (litem.TextVisible)
-                                {
-                                    LayoutControlItem textItem = new LayoutControlItem();
-                                    textItem.Control = new Label() { Text = litem.Text, Name = litem.Name };
-
-                                    if (litem.TextLocation == DevExpress.Utils.Locations.Left)
-                                    {
-                                        textItem.Location = litem.Location;
-                                        textItem.Size = new Size(litem.Control.Location.X - litem.Location.X, litem.Size.Height);
-
-                                        LayoutControlItem newItem = new LayoutControlItem();
-                                        newItem.TextVisible = false;
-                                        newItem.Size = new Size(litem.Bounds.Right - litem.Control.Location.X, litem.Size.Height);
-                                        newItem.Location = new Point(litem.Control.Location.X, litem.Location.Y);
-                                        newItem.Control = litem.Control;
-                                        litem = newItem;
-                                    }
-                                    else if (litem.TextLocation == DevExpress.Utils.Locations.Top)
-                                    {
-                                        textItem.Location = litem.Location;
-                                        textItem.Size = new Size(litem.Size.Width, litem.Control.Location.Y - litem.Location.Y);
-
-                                        LayoutControlItem newItem = new LayoutControlItem();
-                                        newItem.TextVisible = false;
-                                        newItem.Size = new Size(litem.Size.Width, litem.Bounds.Bottom - litem.Control.Location.Y);
-                                        newItem.Location = new Point(litem.Location.X, litem.Control.Location.Y);
-                                        newItem.Control = litem.Control;
-                                        litem = newItem;
-                                    }
-
-                                    li.Add(textItem);
-                                }
-                                li.Add(litem);
-                            }
-                        }
-                        try
-                        {
-                            var rows = li.GroupBy(i => i.Location.Y).OrderBy(g => g.Key).ToList();
-                            var itemsLayoutedInColumns = GetItemsLayoutedInColumns(rows);
-                            var columns = itemsLayoutedInColumns.GroupBy(i => GetLayoutItemLocationX(i)).OrderBy(g => g.Key).ToList();
-
-                            string rowDefinitions = GetRowDefinitions(rows);
-                            if (!string.IsNullOrEmpty(rowDefinitions))
-                                SetAttribute(currentNode, "RowDefinitions", rowDefinitions);
-                            string colDefinitions = GetColumnDefinitions(columns);
-                            if (!string.IsNullOrEmpty(colDefinitions))
-                                SetAttribute(currentNode, "ColumnDefinitions", colDefinitions);
-
-                            for (int i = 0; i < rows.Count; i++)
-                            {
-                                var row = rows[i];
-                                XmlElement grid = currentNode;
-                                if (IsNestedHorizontalLayoutGrid(row))
-                                {
-                                    grid = InsertGridRow(currentNode, row, i, columns.Count);
-                                    LayoutItemsInRow(grid, row);
-                                    continue;
-                                }
-
-                                foreach (var item in row)
-                                {
-                                    int locX = GetLayoutItemLocationX(item);
-                                    int itemColSpan = CalcColumnSpan(item, columns);
-                                    int rowIndex = rows.IndexOf(r => r.Key == item.Location.Y);
-                                    int colIndex = columns.IndexOf(c => c.Key == locX);
-                                    ConvertLayoutControlItem(item, currentNode, doc, rowIndex, colIndex, itemColSpan);
-                                }
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            ShowError("", e);
-                        }
-                    }
-                    if (currentLayoutItem is TabbedControlGroup tabbedControlGroup)
-                    {
-                        foreach (var item in tabbedControlGroup.TabPages)
-                            ConvertLayoutControlItem((BaseLayoutItem)item, currentNode, doc, -1, -1, 1);
-                    }
-                    if (currentLayoutItem is LayoutControlItem layoutControlItem)
-                    {
-                        if (currentLayoutItem is EmptySpaceItem) return;
-                        if (layoutControlItem.Control != null)
-                            ConvertControlCore(layoutControlItem.Control, layoutRow, layoutColumn, colSpan, convertedParent, doc);
-                    }
-                }
-
-                private string GetRowDefinitions(List<IGrouping<int, BaseLayoutItem>> rows)
-                {
-                    StringBuilder b = new StringBuilder();
-                    foreach (var row in rows)
-                    {
-                        bool isAutoHeight = IsAutoHeightRow(row);
-                        AppendParameter(b, isAutoHeight ? "Auto" : "*");
-                    }
-                    return b.ToString();
-                }
-
-                private string GetColumnDefinitions(List<IGrouping<int, BaseLayoutItem>> columns)
-                {
-                    StringBuilder b = new StringBuilder();
-                    foreach (var col in columns)
-                    {
-                        int columnWidth = GetCustomColumnWidth(col);
-                        if (columnWidth > -1)
-                        {
-                            AppendParameter(b, columnWidth.ToString());
-                            continue;
-                        }
-                        AppendParameter(b, IsAutoWidthColumn(col) ? "Auto" : "*");
-                    }
-                    return b.ToString();
-                }
-
-                private List<BaseLayoutItem> GetItemsLayoutedInColumns(List<IGrouping<int, BaseLayoutItem>> rows)
-                {
-                    List<BaseLayoutItem> res = new List<BaseLayoutItem>();
-                    foreach (var row in rows)
-                    {
-                        if (IsNestedHorizontalLayoutGrid(row))
-                            continue;
-                        foreach (var item in row)
-                        {
-                            if (!res.Contains(item))
-                                res.Append(item);
-                        }
-                    }
-                    return res;
-                }
-
-                private void LayoutItemsInRow(XmlElement grid, IGrouping<int, BaseLayoutItem> row)
-                {
-                    var items = row.ToList().OrderBy(i => i.Bounds.X).ToList();
-                    for (int i = 0; i < items.Count; i++)
-                        ConvertLayoutControlItem(items[i], grid, grid.OwnerDocument, 0, i, 1);
-                }
-
-                private XmlElement InsertGridRow(XmlElement parent, IGrouping<int, BaseLayoutItem> row, int rowIndex, int columnSpan)
-                {
-                    XmlElement grid = CreateElement(parent.OwnerDocument, "Grid");
-                    ApplyRowAndColumn(grid, rowIndex, 0, columnSpan);
-                    parent.AppendChild(grid);
-
-                    string columnDefinition = CalcColumnDefinitions(row);
-                    if (!string.IsNullOrEmpty(columnDefinition))
-                        SetAttribute(grid, "ColumnDefinitions", columnDefinition);
-
-                    return grid;
-                }
-                private bool IsAutoHeightRow(IGrouping<int, BaseLayoutItem> row)
-        {
-            if (IsNestedHorizontalLayoutGrid(row))
-                return true;
-            foreach (var litem in row)
-            {
-                IXtraResizableControl resizeable = GetResizeableControl(litem);
-                if (IsAutoHeightItem(litem))
-                    return true;
-            }
-            return false;
-        }
-        private bool IsAutoWidthColumn(IGrouping<int, BaseLayoutItem> col)
-        {
-            foreach (var litem in col)
-            {
-                if (IsAutoWidthItem(litem))
-                    return true;
-            }
-            return false;
-        }
-        private int GetCustomColumnWidth(BaseLayoutItem item)
-        {
-            LayoutControlItem lc = item as LayoutControlItem;
-            if (lc != null && lc.SizeConstraintsType == SizeConstraintsType.Custom)
-                return lc.Size.Width;
-            return -1;
-        }
-        private int GetCustomColumnWidth(IGrouping<int, BaseLayoutItem> col)
-        {
-            int maxWidth = -1;
-            foreach (var item in col)
-            {
-                LayoutControlItem lc = item as LayoutControlItem;
-                if (lc != null && lc.SizeConstraintsType == SizeConstraintsType.Custom)
-                    maxWidth = Math.Max(maxWidth, lc.Size.Width);
-            }
-            return maxWidth;
-        }
-        private bool IsAutoWidthItem(BaseLayoutItem item)
-        {
-            if (item is EmptySpaceItem)
-                return false;
-            LayoutControlItem lci = item as LayoutControlItem;
-            if (lci == null)
-                return false;
-
-            LabelControl lc = lci.Control as LabelControl;
-            if (lc != null && lc.AutoSizeInLayoutControl)
-                return true;
-
-            SimpleButton sb = lci.Control as SimpleButton;
-            return sb != null && sb.AutoWidthInLayoutControl;
-        }
-        private bool IsAutoHeightItem(BaseLayoutItem item)
-        {
-            if (IsAutoWidthItem(item))
-                return true;
-            LayoutControlItem lci = item as LayoutControlItem;
-            if (lci != null)
-            {
-                if (lci.Control != null && lci.Control is Label || lci.Control is LabelControl)
-                    return true;
-                if (lci.Control is BaseEdit be && be.Properties.AutoHeight)
-                    return true;
-            }
-            var resizeable = GetResizeableControl(item);
-            return resizeable != null && resizeable.MinSize.Height > 0;
-        }
-        private string CalcColumnDefinitions(IEnumerable<BaseLayoutItem> items)
-        {
-            StringBuilder b = new StringBuilder();
-            foreach (var item in items)
-            {
-                int width = GetCustomColumnWidth(item);
-                if (width != -1)
-                {
-                    AppendParameter(b, width.ToString());
-                    continue;
-                }
-                AppendParameter(b, IsAutoWidthItem(item) ? "Auto" : "*");
-            }
-
-            return b.ToString();
-        }
-
-        private bool IsNestedHorizontalLayoutGrid(IGrouping<int, BaseLayoutItem> row)
-        {
-            int buttonCount = 0;
-            foreach (var item in row)
-            {
-                if (item is EmptySpaceItem)
-                    continue;
-                LayoutControlItem lc = item as LayoutControlItem;
-                if (lc != null && lc.Control is SimpleButton)
-                {
-                    buttonCount++;
-                    continue;
-                }
-                return false;
-            }
-            return buttonCount > 0;
-        }
-
-        private IXtraResizableControl GetResizeableControl(BaseLayoutItem baseItem)
-        {
-            LayoutControlItem litem = baseItem as LayoutControlItem;
-            if (litem == null)
-                return null;
-            return litem.Container as IXtraResizableControl;
-        }
-
-        private int GetLayoutItemLocationX(BaseLayoutItem i)
-        {
-            return i.Location.X;
-        }
-                private int CalcColumnSpan(BaseLayoutItem item, List<IGrouping<int, BaseLayoutItem>> columns)
-        {
-            int count = 0;
-            foreach (var column in columns)
-            {
-                if (column.Key >= item.Bounds.X && column.Key < item.Bounds.Right)
-                    count++;
-            }
-            return count;
-        }
-                private void InitName(BaseLayoutItem currentLayoutItem, XmlElement currentNode)
-        {
-            if (!string.IsNullOrWhiteSpace(currentLayoutItem.Name))
-                SetAttribute(currentNode, "x:Name", currentLayoutItem.Name);
-        }
-         */
-
         #endregion
         const string controlsVersion = "0.0.49-demo";
 
@@ -377,7 +43,7 @@ namespace WAConverter
         string rootNamespace;
         string rootTypeName;
 
-        bool silent = true; //Please do not commit this option set to a false
+        bool silent = true;
 
         Type[] stopList = new Type[] { typeof(UserControl) };
         Dictionary<Type, string> typesMapping;
@@ -385,17 +51,13 @@ namespace WAConverter
         public XamlConverter()
         {
             object[,] mappings = new object[,] {
-				// Properties Mappings
-				// AvaloniaControl - > Pairs of Properties WinFormProperty -> AvaloniaProperty
-				// TreeListControl
 				//!!! DO not add x:Name here. It is generated without mappings
 				{ "mxtl:TreeListControl", new string[,] {
                         { "Columns", "Columns" }
                     }
                 },
 
-				// TreeListColumn
-				{ "mxtl:TreeListColumn", new string[,] {
+                { "mxtl:TreeListColumn", new string[,] {
                         { "Name", "x:Name" },
                         { "Caption", "Header" },
                         { "Visible", "IsVisible" },
@@ -404,36 +66,30 @@ namespace WAConverter
                     }
                 },
 
-				// MxTabItem
-				{ "mx:MxTabItem", new string[,] {
+                { "mx:MxTabItem", new string[,] {
                         { "Text", "Header" },
                     }
                 },
-				
-				// Button
-				{ "Button", new string[,] {
+
+                { "Button", new string[,] {
                         { "Text", "Content" },
                     }
                 },
 
-				// Label
-				{ "Label", new string[,] {
+                { "Label", new string[,] {
                         { "Text", "Content" },
                     }
                 },
 
-				// SplitContainerControl
-				{ "mxe:SplitContainerControl", new string[,] {
+                { "mxe:SplitContainerControl", new string[,] {
                         { "Horizontal", "Orientation" },
                     }
                 },
-				// SplitContainerControl
-				{ "mxe:SplitGroupPanel", new string[,] {
+                { "mxe:SplitGroupPanel", new string[,] {
                     }
                 },
 
-				// GroupBox
-				{ "mxe:GroupBox", new string [,] {
+                { "mxe:GroupBox", new string [,] {
                         { "ShowCaption", "ShowCaption" },
                         { "CaptionLocation", "CaptionLocation" },
                         { "Text", "Header" }
@@ -463,23 +119,17 @@ namespace WAConverter
                         { "Properties.ReadOnly", "ReadOnly"}
                     }
                 },
-				// TextEditorProperties
-				{ "mxe:TextEditorProperties", new string[]{ } },
+                { "mxe:TextEditorProperties", new string[]{ } },
 
-				// ButtonEditorProperties
-				{ "mxe:ButtonEditorProperties", new string[]{ } },
+                { "mxe:ButtonEditorProperties", new string[]{ } },
 
-				// SpinEditorProperties
-				{ "mxe:SpinEditorProperties", new string[]{ } },
+                { "mxe:SpinEditorProperties", new string[]{ } },
 
-				// CheckEditorProperties
-				{ "mxe:CheckEditorProperties", new string[]{ } },
+                { "mxe:CheckEditorProperties", new string[]{ } },
 
-				// PopupEditorProperties
-				{ "mxe:PopupEditorProperties", new string[]{ } },
+                { "mxe:PopupEditorProperties", new string[]{ } },
 
-				// PopupEditorProperties
-				{ "mxe:ComboBoxEditorProperties", new string[]{ } },
+                { "mxe:ComboBoxEditorProperties", new string[]{ } },
             };
             this.objectMappings = ConvertToDictionary(mappings);
         }
@@ -559,7 +209,6 @@ namespace WAConverter
             Dictionary<string, string> mappings = GetPropertiesMappings(node.Name);
             if (mappings == null)
             {
-                //ShowError("There is no mappings for " + src.GetType().Name, null);
                 return;
             }
 
@@ -602,8 +251,7 @@ namespace WAConverter
         bool AssignValuePropertyFromResource(XmlElement node, string propertyName, object src, PropertyInfo pi)
         {
             string propertyOwnerName = (src as Control)?.Name;
-            //if (propertyOwnerName == null) propertyOwnerName = (src as BaseLayoutItem)?.Name; // Uncomment for DevExpress controls conversion
-            if ((pi.Name == "Text" || pi.Name == "Caption") && propertyOwnerName != null) //Localizeable properties here
+            if ((pi.Name == "Text" || pi.Name == "Caption") && propertyOwnerName != null)
             {
                 string value = $"{{{$"x:Static p:{rootTypeName}.{propertyOwnerName}_{pi.Name}"}}}";
                 SetAttribute(node, propertyName, value);
@@ -748,7 +396,6 @@ namespace WAConverter
             try
             {
                 string baseType = target is Form ? "Window" : "UserControl";
-                //string templateName = "WAConverter.WAConverter.Templates.CodeFileTemplate.cs";
                 string templateName = "CodeFileTemplate.cs";
                 string template = LoadTemplate(templateName);
                 template = template.Replace("@BaseClass@", baseType);
@@ -769,7 +416,7 @@ namespace WAConverter
         private string GenerateFields(Control target)
         {
             StringBuilder b = new StringBuilder();
-            foreach (var fi in Fields) // Uncomment for DevExpress controls conversion
+            foreach (var fi in Fields)
             {
                 if (fi.Control is ComboBox || fi.Control is CheckBox || fi.Control is NumericUpDown)
                 {
@@ -777,18 +424,6 @@ namespace WAConverter
                 }
             }
 
-            /*            foreach (var fi in Fields) // Uncomment for DevExpress controls conversion
-                        {
-                            if (fi.Control is BaseEdit)
-                            {
-                                b.AppendLine($"\t[ObservableProperty] {GetPropertyType(fi.Control)} {fi.Name};");
-                            }
-                            else if (fi.Control is TreeList)
-                            {
-                                b.AppendLine($"\t[ObservableProperty] object {fi.FocusedItemName};");
-                                b.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.SelectedItemsName};");
-                            }
-                        }*/
             if (target is Form)
             {
                 b.AppendLine("\tpublic event Action RequestClose;");
@@ -801,10 +436,6 @@ namespace WAConverter
             StringBuilder b = new StringBuilder();
             foreach (var fi in Fields)
             {
-                //if (fi.Control is TreeList) // Uncomment for DevExpress controls conversion
-                //{
-                //    b.AppendLine($"\t\tthis.{fi.SelectedItemsName} = new ObservableCollection<object>();");
-                //}
             }
             return b.ToString();
         }
@@ -836,7 +467,6 @@ namespace WAConverter
             try
             {
                 string baseType = target is Form ? "Window" : "UserControl";
-                //string templateName = "WAConverter.WAConverter.Templates.ViewModelClassTemplate.cs";
                 string templateName = "ViewModelClassTemplate.cs";
                 string template = LoadTemplate(templateName);
                 template = template.Replace("@BaseClass@", baseType);
@@ -859,7 +489,7 @@ namespace WAConverter
 
         string GetMappedType(Type type)
         {
-            var typeAndInterfaces = Enumerable.Concat(new[] { type }, type.GetInterfaces()); //lookup mapped type by interfaces
+            var typeAndInterfaces = Enumerable.Concat(new[] { type }, type.GetInterfaces());
             var mappedTypes = typeAndInterfaces.Select(item =>
             {
                 string result = null;
@@ -902,13 +532,6 @@ namespace WAConverter
 
         private string GetPropertyType(Control control)
         {
-            //if (control is SpinEdit) // Uncomment for DevExpress controls conversion
-            //    return "Decimal";
-            //if (control is CheckEdit)
-            //    return "bool";
-            //if (control is TextEdit)
-            //    return "string";
-
             if (control is NumericUpDown)
                 return "Decimal";
             if (control is CheckBox)
@@ -922,7 +545,7 @@ namespace WAConverter
         {
             namespaceMapping = new Dictionary<string, string>
             {
-                { "", "https://github.com/avaloniaui"},
+                { string.Empty, "https://github.com/avaloniaui"},
                 { "x", "http://schemas.microsoft.com/winfx/2006/xaml"},
                 { "d", "http://schemas.microsoft.com/expression/blend/2008"},
                 { "mc", "http://schemas.openxmlformats.org/markup-compatibility/2006"},
@@ -942,57 +565,17 @@ namespace WAConverter
         {
             typesMapping = new Dictionary<Type, string>
             {
-/*                { typeof(SimpleButton), "Button" }, // Uncomment for DevExpress controls conversion
-                { typeof(LabelControl), "Label" },
-                { typeof(SpinEdit), "mxe:SpinEditor" },
-                { typeof(GroupControl), "mxe:GroupBox" },*/
-                { typeof(GroupBox), "Grid" },
+{ typeof(GroupBox), "Grid" },
                 { typeof(NumericUpDown), "mxe:SpinEditor" },
-                //{ typeof(TextBox), "mxe:TextEditor" },
                 { typeof(ComboBox), "mxe:ComboBoxEditor" },
                 { typeof(CheckBox), "mxe:CheckEditor" },
-/*				{ typeof(PanelControl), "Grid" }, // Uncomment for DevExpress controls conversion
-                { typeof(XtraTabControl), "mx:MxTabControl" },
-                { typeof(XtraTabPage), "mx:MxTabItem" },
-                { typeof(CheckEdit), "mxe:CheckEditor" },
-                { typeof(TreeList), "mxtl:TreeListControl" },
-                { typeof(LayoutControl), "Grid" },
-                { typeof(LayoutControlGroup), "mxe:GroupBox" },
-                { typeof(TabbedGroup), "mx:MxTabControl" },
-                { typeof(TabbedControlGroup), "mx:MxTabControl" },
-                { typeof(DropDownButton), "mxe:ComboBoxEditor" },
-                { typeof(ComboBoxEdit), "mxe:ComboBoxEditor" },
-                { typeof(TextEdit), "mxe:TextEditor" },
-                { typeof(MemoEdit), "TextBox" },
-                { typeof(ButtonEdit), "mxe:ButtonEditor" },
-                { typeof(TreeListColumn), "mxtl:TreeListColumn" },
-                { typeof(IGraphicControl), "gf:GraphicPreviewFrameControl" },
-                { typeof(IGraphicEditFrameControl), "gf:GraphicPreviewFrameControl" },
-
-                { typeof(RepositoryItemTextEdit), "mxe:TextEditorProperties" },
-                { typeof(RepositoryItemButtonEdit), "mxe:ButtonEditorProperties" },
-                { typeof(RepositoryItemSpinEdit), "mxe:SpinEditorProperties" },
-                { typeof(RepositoryItemCheckEdit), "mxe:CheckEditorProperties" },
-                { typeof(RepositoryItemPopupContainerEdit), "mxe:PopupEditorProperties" },
-                { typeof(RepositoryItemComboBox), "mxe:ComboBoxEditorProperties" },
-                { typeof(CommonFieldsSetControl), "uib:CommonFieldsSetControl" },
-                { typeof(SplitContainerControl), "mxe:SplitContainerControl" },
-                { typeof(SplitGroupPanel), "mxe:SplitGroupPanel" },
-                { typeof(GridControl), "mxtl:TreeListControl" },
-                { typeof(VGridControl), "mxpg:PropertyGridControl" },
-                { typeof(PopupContainerControl), "mxb:PopupContainer" },
-
-                { typeof(HyperLinkEdit), "mxe:TextEditor" },
-                { typeof(HyperlinkLabelControl), "mxe:TextEditor" },*/
-
-            };
+};
         }
 
         string LoadTemplate(string resourceTemplateName)
         {
             var templateName = Assembly.GetAssembly(typeof(WAForm)).GetManifestResourceNames().Single(x => x.EndsWith(resourceTemplateName));
 
-            //Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceTemplateName);
             Stream resource = Assembly.GetAssembly(typeof(WAForm)).GetManifestResourceStream(templateName);
             if (resource == null)
             {
@@ -1006,67 +589,7 @@ namespace WAConverter
 
         private static void ProcessImages(string fName, Control target)
         {
-            //ProcessImageCollections(fName, target); // Uncomment for DevExpress controls conversion
-            //ProcessControlImages(fName, target); 
         }
-
-        /*        private static void ProcessControlImages(string fName, Control target) // Uncomment for DevExpress controls conversion
-                {
-                    int imageCollectionCounter = 0;
-                    var directory = Path.GetDirectoryName(Path.GetFullPath(fName));
-                    foreach (var control in target.Controls)
-                    {
-                        if (control is LabelControl labelControl)
-                        {
-                            var images = (labelControl.ImageOptions.Images as ImageCollection)?.Images.Cast<Image>() ?? Enumerable.Empty<Image>();
-                            if (labelControl.ImageOptions.Image != null)
-                            {
-                                images = images.Append(labelControl.ImageOptions.Image);
-                            }
-
-                            imageCollectionCounter++;
-                            SaveImageCollection(target, images, directory, imageCollectionCounter);
-                        }
-                    }
-                }
-
-        private static void ProcessImageCollections(string fName, Control target)
-        {
-            var components = target.GetType().GetField("components", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (components == null) return;
-            var componentsInstance = components.GetValue(target) as IContainer;
-            if (componentsInstance == null) return;
-            int imageCollectionCounter = 0;
-            var directory = Path.GetDirectoryName(Path.GetFullPath(fName)) + "/";
-            foreach (var c in componentsInstance.Components)
-            {
-                var images = (c as ImageCollection)?.Images.Cast<Image>()
-                             ?? (c as ImageList)?.Images.Cast<Image>();
-
-                if (images != null)
-                {
-                    imageCollectionCounter++;
-                    SaveImageCollection(target, images, directory, imageCollectionCounter);
-                }
-
-                var svgImageCollection = c as SvgImageCollection;
-                if (svgImageCollection != null)
-                {
-                    int counter = 0;
-                    imageCollectionCounter++;
-                    foreach (SvgImage image in svgImageCollection)
-                    {
-                        try
-                        {
-                            image.Save(Path.Combine(directory, target.GetType().Name + "_svgimageCollection" + imageCollectionCounter.ToString() + "_" + counter.ToString() + ".svg"));
-                            counter++;
-                        }
-                        catch { };
-
-                    }
-                }
-            }
-        }*/
 
         private static void SaveImageCollection(Control target, IEnumerable<Image> images, string directory, int imageCollectionCounter)
         {
@@ -1104,7 +627,7 @@ namespace WAConverter
             }
             else
             {
-                prefix = "";
+                prefix = string.Empty;
                 name = parts[0];
             }
         }
@@ -1114,17 +637,10 @@ namespace WAConverter
         protected bool IsCommandControl(Control control)
         {
             return control is Button;
-            // || control is SimpleButton ||  control is HyperLinkEdit || control is HyperlinkLabelControl; // Uncomment for DevExpress controls conversion
         }
 
         public void ConvertControl(Control parent, XmlNode convertedParent, XmlDocument doc)
         {
-            /*if (parent is LayoutControl layoutControl) // Uncomment for DevExpress LayoutControl conversion
-            {
-              ConvertLayoutControl(layoutControl, convertedParent, doc);
-              return;
-            }
-            */
             foreach (Control control in parent.Controls)
                 ConvertControlCore(control, -1, -1, 1, convertedParent, doc);
         }
@@ -1140,7 +656,6 @@ namespace WAConverter
 
             if (currentNodeType == null)
             {
-                //ShowError("could not find type mapping for:" + control.GetType().Name, null);
                 currentNodeType = control.GetType().Name;
             }
             AvaloniaFieldInfo fi = new AvaloniaFieldInfo() { Type = ExtractTypeName(currentNodeType), Name = control.Name, Control = control };
@@ -1152,33 +667,16 @@ namespace WAConverter
             AssignProperiesCore(currentNode, control);
             if (!string.IsNullOrWhiteSpace(control.Name))
                 SetAttribute(currentNode, "x:Name", control.Name);
-            //            if (control is HyperlinkLabelControl || control is HyperLinkEdit) // Uncomment for DevExpress controls conversion
-            //                SetAttribute(currentNode, "Classes", "LayoutItem Hyperlink");
-            //else if (control is BaseEdit || control is Label || control is LabelControl || control is SimpleButton)
-            //SetAttribute(currentNode, "Classes", "LayoutItem");
             else if (control is Label)
                 SetAttribute(currentNode, "Classes", "LayoutItem");
 
             if (control is ComboBox || control is CheckBox || control is NumericUpDown)
                 SetAttribute(currentNode, "EditorValue", $"{{Binding {fi.PropertyName}}}");
 
-            //if (control is BaseEdit) // Uncomment for DevExpress controls conversion
-            //SetAttribute(currentNode, "EditorValue", $"{{Binding {fi.PropertyName}}}");
             if (IsCommandControl(control))
             {
-                //                if (control is HyperlinkLabelControl || control is HyperLinkEdit) // Uncomment for DevExpress controls conversion
-                //                {
-                //                    SetAttribute(currentNode, "mxu:EventToCommandHelper.RoutedEvent", "{x:Static InputElement.PointerPressed}");
-                //                    SetAttribute(currentNode, "mxu:EventToCommandHelper.Command", $"{{Binding {fi.CommandName}}}");
-                //                }
-                //               else
                 SetAttribute(currentNode, "Command", $"{{Binding {fi.CommandName}}}");
             }
-            //            if (control is TreeList) // Uncomment for DevExpress controls conversion
-            //            {
-            //                SetAttribute(currentNode, "FocusedItem", $"{{Binding {fi.NameFocusedItem}}}");
-            //                SetAttribute(currentNode, "SelectedItems", $"{{Binding {fi.NameSelectedItems}}}");
-            //           }
             if (control.Controls.Count > 0 && !stopList.Any(item => control.GetType().IsSubclassOf(item)))
                 ConvertControl(control, currentNode, doc);
             return true;
@@ -1209,7 +707,7 @@ namespace WAConverter
                 bool isUserControl = target is UserControl;
                 var currentNode = CreateElement(doc, isUserControl ? "UserControl" : "Window");
                 foreach (var key in namespaceMapping.Keys)
-                    currentNode.SetAttribute("xmlns" + (key.Length > 0 ? ":" + key : ""), namespaceMapping[key]);
+                    currentNode.SetAttribute("xmlns" + (key.Length > 0 ? ":" + key : string.Empty), namespaceMapping[key]);
                 SetAttribute(currentNode, "x:Class", rootClassName);
                 if (!isUserControl)
                 {
