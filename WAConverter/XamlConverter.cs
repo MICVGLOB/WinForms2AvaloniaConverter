@@ -1,8 +1,7 @@
-﻿
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
@@ -35,7 +34,9 @@ namespace WAConverter
             "VGridHorzScrollBar",
             "FindControl",
             "HScrollBar",
-            "VScrollBar"
+            "VScrollBar",
+            "UpDownButtons",
+            "UpDownEdit"
         };
         Dictionary<string, string> namespaceMapping;
 
@@ -47,6 +48,7 @@ namespace WAConverter
 
         Type[] stopList = new Type[] { typeof(UserControl) };
         Dictionary<Type, string> typesMapping;
+        Dictionary<Type, string> editorValueSuffixMapping;
 
         public XamlConverter()
         {
@@ -117,7 +119,7 @@ namespace WAConverter
             },
             {
                 "mxe:TextEditor",
-                new string[,] { { "Text", "EditorValue" }, { "Properties.ReadOnly", "ReadOnly" } }
+                new string[,] {{ "Properties.ReadOnly", "ReadOnly" } }
             },
             {
                 "TextBox",
@@ -125,15 +127,15 @@ namespace WAConverter
             },
             {
                 "mxe:ButtonEditor",
-                new string[,] { { "Text", "EditorValue" }, { "Properties.ReadOnly", "ReadOnly" } }
+                new string[,] { { "Properties.ReadOnly", "ReadOnly" } }
             },
             {
                 "mxe:SpinEditor",
-                new string[,] { { "Text", "EditorValue" }, { "Properties.ReadOnly", "ReadOnly" } }
+                new string[,] { { "Properties.ReadOnly", "ReadOnly" }, { "Minimum", "Minimum" }, { "Maximum", "Maximum" }, }
             },
             {
                 "mxe:ComboBoxEditor",
-                new string[,] { { "Text", "EditorValue" }, { "Properties.ReadOnly", "ReadOnly" } }
+                new string[,] { { "Properties.ReadOnly", "ReadOnly" } }
             },
             {
                 "mxe:TextEditorProperties",
@@ -475,12 +477,13 @@ namespace WAConverter
             StringBuilder b = new StringBuilder();
             foreach(var fi in Fields)
             {
-                if(fi.Control is ComboBox || fi.Control is CheckBox || fi.Control is NumericUpDown)
+                if (fi.Control is ComboBox || fi.Control is CheckBox || fi.Control is NumericUpDown || ((fi.Control is TextBox) && !fi.Control.GetType().IsSubclassOf(typeof(TextBox))))
                 {
-                    b.AppendLine($"\t[ObservableProperty] {GetPropertyType(fi.Control)} {fi.Name};");
+                    b.AppendLine($"\t[ObservableProperty] {GetPropertyType(fi.Control)} {AddSuffixToEditorValuePropertyName(fi.Control, fi.FieldName)};");
                 }
+                if (fi.Control is ComboBox)
+                    b.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.FieldName + "ItemsSource"};");
             }
-
             if(target is Form)
             {
                 b.AppendLine("\tpublic event Action RequestClose;");
@@ -502,17 +505,18 @@ namespace WAConverter
             StringBuilder b = new StringBuilder();
             foreach(var fi in Fields)
             {
+                
                 if(IsCommandControl(fi.Control))
                 {
-                    b.AppendLine($"\t[RelayCommand(CanExecute=nameof(CanExecute{fi.CommandName}))]");
-                    b.AppendLine($"\tvoid On{fi.CommandName}(object parameter)");
+                    b.AppendLine($"\t[RelayCommand(CanExecute=nameof(CanExecute{fi.Name}))]");
+                    b.AppendLine($"\tvoid {fi.Name}(object parameter)");
                     b.AppendLine("\t{");
                     if(fi.CommandName.StartsWith("ok") ||
                         fi.CommandName.StartsWith("cancel") ||
                         fi.CommandName.StartsWith("close"))
                         b.AppendLine("\t\tRequestClose?.Invoke();");
                     b.AppendLine("\t}");
-                    b.AppendLine($"\tbool CanExecute{fi.CommandName}(object parameter)\n\t{{");
+                    b.AppendLine($"\tbool CanExecute{fi.Name}(object parameter)\n\t{{");
                     b.AppendLine("\t\treturn true;");
                     b.AppendLine("\t}");
                 }
@@ -624,13 +628,22 @@ namespace WAConverter
             typesMapping = new Dictionary<Type, string>
             {
                 { typeof(GroupBox), "Grid" },
+                { typeof(TableLayoutPanel), "WrapPanel" },
+                
                 { typeof(NumericUpDown), "mxe:SpinEditor" },
                 { typeof(ComboBox), "mxe:ComboBoxEditor" },
                 { typeof(CheckBox), "mxe:CheckEditor" },
                 { typeof(DataGridView), "mxtl:TreeListControl" },
-
+                { typeof(TextBox), "mxe:TextEditor" },
                 { typeof(Form), "StackPanel" },
                 { typeof(UserControl), "StackPanel" },
+            };
+            editorValueSuffixMapping = new Dictionary<Type, string>
+            {
+                { typeof(ComboBox), "SelectedValue" },
+                { typeof(CheckBox), "Checked" },
+                { typeof(NumericUpDown), "Value" },
+                { typeof(TextBox), "TextValue" },
             };
         }
 
@@ -736,8 +749,11 @@ namespace WAConverter
             else if (control is Label)
                 SetAttribute(currentNode, "Classes", "LayoutItem");
 
-            if (control is ComboBox || control is CheckBox || control is NumericUpDown)
-                SetAttribute(currentNode, "EditorValue", $"{{Binding {fi.PropertyName}}}");
+            if (control is ComboBox || control is CheckBox || control is NumericUpDown || ((fi.Control is TextBox) && !fi.Control.GetType().IsSubclassOf(typeof(TextBox))))
+                SetAttribute(currentNode, "EditorValue", $"{{Binding {AddSuffixToEditorValuePropertyName(control, fi.PropertyName)}}}");
+
+            if(control is ComboBox)
+                SetAttribute(currentNode, "ItemsSource", $"{{Binding {fi.PropertyName + "ItemsSource"}}}");
 
             if (IsCommandControl(control))
             {
@@ -746,6 +762,15 @@ namespace WAConverter
             if (control.Controls.Count > 0 && !stopList.Any(item => control.GetType().IsSubclassOf(item)))
                 ConvertControl(control, currentNode, doc);
             return true;
+        }
+
+        private string AddSuffixToEditorValuePropertyName(Control control, string name)
+        {
+            string suffix = null;
+            var hasElement = editorValueSuffixMapping.TryGetValue(control.GetType(), out suffix);
+            if(hasElement)
+                return name + suffix;
+            return name;
         }
 
         private void CreateNewNode(Control control, int row, int column, int colSpan, XmlNode convertedParent, XmlDocument doc, out AvaloniaFieldInfo fi, out XmlElement currentNode)
@@ -841,11 +866,13 @@ namespace WAConverter
 
             private string RemovePrefix(string value)
             {
-                if(value == null)
+                if(string.IsNullOrEmpty(value))
                     return value;
                 if(value.StartsWith("btn") || value.StartsWith("lbl"))
                     return value.Substring(3);
                 int prefixCount = 0;
+                if (char.IsUpper(value[0]))
+                    return value;
                 for(int i = 0; i < value.Length; i++)
                 {
                     if(char.IsUpper(value[i]) && i > 0)

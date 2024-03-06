@@ -9,7 +9,9 @@ public partial class @TypeClass@ : @BaseClass@ {
 
 	public @TypeClass@() {
 		InitializeComponent();
-	}
+		if (Design.IsDesignMode)
+            DataContext = new @ViewModelClass@();
+    }
 
 	protected @ViewModelClass@ ViewModel { get; private set; }
 	protected override void OnDataContextChanged(EventArgs e) {
