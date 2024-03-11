@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -132,6 +133,14 @@ namespace WAConverter
             {
                 "mxe:SpinEditor",
                 new string[,] { { "Properties.ReadOnly", "ReadOnly" }, { "Minimum", "Minimum" }, { "Maximum", "Maximum" }, }
+            },
+            {
+                "ProgressBar",
+                new string[,] { { "Minimum", "Minimum" }, { "Maximum", "Maximum" }, }
+            },
+            {
+                "RadioButton",
+                new string[,] { { "Text", "Content" },}
             },
             {
                 "mxe:ComboBoxEditor",
@@ -481,8 +490,12 @@ namespace WAConverter
                 {
                     b.AppendLine($"\t[ObservableProperty] {GetPropertyType(fi.Control)} {AddSuffixToEditorValuePropertyName(fi.Control, fi.FieldName)};");
                 }
-                if (fi.Control is ComboBox)
+                else if (fi.Control is ComboBox)
                     b.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.FieldName + "ItemsSource"};");
+                else if (fi.Control is ProgressBar)
+                    b.AppendLine($"\t[ObservableProperty] int {fi.FieldName + "Value"};");
+                else if (fi.Control is RadioButton)
+                    b.AppendLine($"\t[ObservableProperty] bool {fi.FieldName + "Checked"}{(((RadioButton)fi.Control).Checked ? " = true" : "")};");
             }
             if(target is Form)
             {
@@ -628,8 +641,9 @@ namespace WAConverter
             typesMapping = new Dictionary<Type, string>
             {
                 { typeof(GroupBox), "Grid" },
-                { typeof(TableLayoutPanel), "WrapPanel" },
-                
+                { typeof(TableLayoutPanel), "Grid" },
+                { typeof(ProgressBar), "ProgressBar" },
+
                 { typeof(NumericUpDown), "mxe:SpinEditor" },
                 { typeof(ComboBox), "mxe:ComboBoxEditor" },
                 { typeof(CheckBox), "mxe:CheckEditor" },
@@ -642,6 +656,7 @@ namespace WAConverter
             {
                 { typeof(ComboBox), "SelectedValue" },
                 { typeof(CheckBox), "Checked" },
+                { typeof(RadioButton), "Checked" },
                 { typeof(NumericUpDown), "Value" },
                 { typeof(TextBox), "TextValue" },
             };
@@ -725,10 +740,23 @@ namespace WAConverter
 
         public void ConvertControl(Control parent, XmlNode convertedParent, XmlDocument doc)
         {
-            foreach(Control control in parent.Controls)
-                ConvertControlCore(control, -1, -1, 1, convertedParent, doc);
-        }
+            var row = -1;
+            var column = -1;
 
+            var controls = parent.Controls.Cast<Control>();
+            if (parent is TableLayoutPanel panel)
+                controls = controls.OrderBy(c => panel.GetColumn(c));
+
+            foreach (var control in controls)
+            {
+                if(parent is TableLayoutPanel tablePanel)
+                {
+                    row = tablePanel.GetRow(control);
+                    column = tablePanel.GetColumn(control);
+                }
+                ConvertControlCore(control, row, column, 1, convertedParent, doc);
+            }            
+        }
 
         public bool ConvertControlCore(
             Control control,
@@ -755,6 +783,13 @@ namespace WAConverter
             if(control is ComboBox)
                 SetAttribute(currentNode, "ItemsSource", $"{{Binding {fi.PropertyName + "ItemsSource"}}}");
 
+            if (control is ProgressBar)
+                SetAttribute(currentNode, "Value", $"{{Binding {fi.PropertyName + "Value"}}}");
+
+            if (control is RadioButton radioButton)
+                AddRadioButtonAttributes(currentNode, radioButton, fi);
+            if (control is TableLayoutPanel tableLayoutPanel)
+                AddTableLayoutPanelAttributes(currentNode, tableLayoutPanel, fi);
             if (IsCommandControl(control))
             {
                 SetAttribute(currentNode, "Command", $"{{Binding {fi.CommandName}}}");
@@ -771,6 +806,64 @@ namespace WAConverter
             if(hasElement)
                 return name + suffix;
             return name;
+        }
+
+        private void AddRadioButtonAttributes(XmlElement currentNode, RadioButton radioButton, AvaloniaFieldInfo fi)
+        {
+            SetAttribute(currentNode, "IsChecked", $"{{Binding {AddSuffixToEditorValuePropertyName(radioButton, fi.PropertyName)}}}");
+            var parent = radioButton.Parent;
+            var radioButtonName = radioButton.Name;
+            if (!radioButtonContainers.ContainsKey(parent) && !string.IsNullOrEmpty(radioButtonName))
+                radioButtonContainers.Add(parent, radioButtonName + "Group");
+            if(radioButtonContainers.ContainsKey(parent))
+                SetAttribute(currentNode, "GroupName", radioButtonContainers[parent]);
+        }
+        private void AddTableLayoutPanelAttributes(XmlElement currentNode, TableLayoutPanel layoutPanel, AvaloniaFieldInfo fi)
+        {
+            if(layoutPanel.ColumnCount == 0 || layoutPanel.RowCount == 0)
+                return;
+            var columnsString = "";
+            var rowsString = "";
+            foreach(var column in layoutPanel.ColumnStyles)
+            {
+                if (column is ColumnStyle columnStyle)
+                {
+                    switch (columnStyle.SizeType)
+                    {
+                        case SizeType.Absolute: 
+                            columnsString += $"{columnStyle.Width.ToString(CultureInfo.InvariantCulture)} ";
+                            break;
+                        case SizeType.Percent:
+                            columnsString += $"{(columnStyle.Width / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
+                            break;
+                        default:
+                            columnsString += "Auto ";
+                            break;
+                    }
+                }
+            }
+            foreach (var row in layoutPanel.RowStyles)
+            {
+                if (row is RowStyle rowStyle)
+                {
+                    switch (rowStyle.SizeType)
+                    {
+                        case SizeType.Absolute:
+                            rowsString += $"{rowStyle.Height.ToString(CultureInfo.InvariantCulture)} ";
+                            break;
+                        case SizeType.Percent:
+                            rowsString += $"{(rowStyle.Height / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
+                            break;
+                        default:
+                            rowsString += "Auto ";
+                            break;
+                    }
+                }
+            }
+            if(!string.IsNullOrEmpty(columnsString))
+                SetAttribute(currentNode, "ColumnDefinitions", columnsString.Remove(columnsString.Length - 1, 1));
+            if (!string.IsNullOrEmpty(rowsString))
+                SetAttribute(currentNode, "RowDefinitions", rowsString.Remove(rowsString.Length - 1, 1));
         }
 
         private void CreateNewNode(Control control, int row, int column, int colSpan, XmlNode convertedParent, XmlDocument doc, out AvaloniaFieldInfo fi, out XmlElement currentNode)
@@ -839,6 +932,7 @@ namespace WAConverter
                 XmlElement newCurrentNode;
                 CreateNewNode(target, -1, -1, 1, currentNode, doc, out fi, out newCurrentNode);
 
+                radioButtonContainers.Clear();
                 ConvertControl(target, newCurrentNode, doc);
                 string dir = Directory.GetCurrentDirectory() + "\\Converted";
                 if(!Directory.Exists(dir))
@@ -941,6 +1035,8 @@ namespace WAConverter
 
             public string Type { get; set; }
         }
+
+        Dictionary<Control, string> radioButtonContainers = new Dictionary<Control, string>();
     }
 }
 
