@@ -640,7 +640,7 @@ namespace WAConverter
         {
             typesMapping = new Dictionary<Type, string>
             {
-                { typeof(GroupBox), "Grid" },
+                { typeof(GroupBox), "mxe:GroupBox" },
                 { typeof(TableLayoutPanel), "Grid" },
                 { typeof(ProgressBar), "ProgressBar" },
 
@@ -649,8 +649,11 @@ namespace WAConverter
                 { typeof(CheckBox), "mxe:CheckEditor" },
                 { typeof(DataGridView), "mxtl:TreeListControl" },
                 { typeof(TextBox), "mxe:TextEditor" },
+                { typeof(MonthCalendar), "mxe:CalendarControl" },
                 { typeof(Form), "StackPanel" },
                 { typeof(UserControl), "StackPanel" },
+                { typeof(RootScrollViewer), "ScrollViewer" },
+                
             };
             editorValueSuffixMapping = new Dictionary<Type, string>
             {
@@ -740,6 +743,15 @@ namespace WAConverter
 
         public void ConvertControl(Control parent, XmlNode convertedParent, XmlDocument doc)
         {
+            var parentNode = convertedParent;
+            if(parent is GroupBox)
+            {
+                AvaloniaFieldInfo fi;
+                XmlElement stackPanelNode;
+                CreateNewNode(new UserControl(), -1, -1, 1, convertedParent, doc, out fi, out stackPanelNode);
+                parentNode = stackPanelNode;
+            }
+
             var row = -1;
             var column = -1;
 
@@ -754,7 +766,7 @@ namespace WAConverter
                     row = tablePanel.GetRow(control);
                     column = tablePanel.GetColumn(control);
                 }
-                ConvertControlCore(control, row, column, 1, convertedParent, doc);
+                ConvertControlCore(control, row, column, 1, parentNode, doc);
             }            
         }
 
@@ -786,10 +798,16 @@ namespace WAConverter
             if (control is ProgressBar)
                 SetAttribute(currentNode, "Value", $"{{Binding {fi.PropertyName + "Value"}}}");
 
+            if (control is GroupBox)
+                SetAttribute(currentNode, "Margin", "8");
+
             if (control is RadioButton radioButton)
                 AddRadioButtonAttributes(currentNode, radioButton, fi);
             if (control is TableLayoutPanel tableLayoutPanel)
                 AddTableLayoutPanelAttributes(currentNode, tableLayoutPanel, fi);
+
+            SetMinWidth(currentNode, control);
+
             if (IsCommandControl(control))
             {
                 SetAttribute(currentNode, "Command", $"{{Binding {fi.CommandName}}}");
@@ -818,6 +836,13 @@ namespace WAConverter
             if(radioButtonContainers.ContainsKey(parent))
                 SetAttribute(currentNode, "GroupName", radioButtonContainers[parent]);
         }
+
+        private void SetMinWidth(XmlElement currentNode, Control control)
+        {
+            if (control is TextBox || control is ComboBox || control is NumericUpDown || control is ProgressBar)
+                SetAttribute(currentNode, "MinWidth", control.Size.Width.ToString());
+        }
+
         private void AddTableLayoutPanelAttributes(XmlElement currentNode, TableLayoutPanel layoutPanel, AvaloniaFieldInfo fi)
         {
             if(layoutPanel.ColumnCount == 0 || layoutPanel.RowCount == 0)
@@ -864,6 +889,7 @@ namespace WAConverter
                 SetAttribute(currentNode, "ColumnDefinitions", columnsString.Remove(columnsString.Length - 1, 1));
             if (!string.IsNullOrEmpty(rowsString))
                 SetAttribute(currentNode, "RowDefinitions", rowsString.Remove(rowsString.Length - 1, 1));
+            SetAttribute(currentNode, "Margin", "8");
         }
 
         private void CreateNewNode(Control control, int row, int column, int colSpan, XmlNode convertedParent, XmlDocument doc, out AvaloniaFieldInfo fi, out XmlElement currentNode)
@@ -929,9 +955,12 @@ namespace WAConverter
                 doc.AppendChild(currentNode);
 
                 AvaloniaFieldInfo fi;
-                XmlElement newCurrentNode;
-                CreateNewNode(target, -1, -1, 1, currentNode, doc, out fi, out newCurrentNode);
+                XmlElement scrollViewerNode;
+                CreateNewNode(new RootScrollViewer(), -1, -1, 1, currentNode, doc, out fi, out scrollViewerNode);
 
+                XmlElement newCurrentNode;
+                CreateNewNode(target, -1, -1, 1, scrollViewerNode, doc, out fi, out newCurrentNode);
+                
                 radioButtonContainers.Clear();
                 ConvertControl(target, newCurrentNode, doc);
                 string dir = Directory.GetCurrentDirectory() + "\\Converted";
@@ -1037,6 +1066,7 @@ namespace WAConverter
         }
 
         Dictionary<Control, string> radioButtonContainers = new Dictionary<Control, string>();
+        internal class RootScrollViewer : Control { }
     }
 }
 
