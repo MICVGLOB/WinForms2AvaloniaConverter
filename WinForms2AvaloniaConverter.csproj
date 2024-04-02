@@ -21,9 +21,11 @@
     <EmbeddedResource Include="WAConverter\AppTemplate\App.axaml.cs" />
     <EmbeddedResource Include="WAConverter\AppTemplate\MainWindow.axaml.cs" />
     <EmbeddedResource Include="WAConverter\AppTemplate\Program.cs" />
+    <Compile Include="WAConverter\XamlConverter.Config.cs" />
     <Compile Include="WAConverter\XamlConverter.cs" />
     <Compile Include="WAConverter\Forms.cs" />
     <Compile Include="WAConverter\Utils.cs" />
+    <Compile Include="WAConverter\XamlConverter.Templates.cs" />
   </ItemGroup>
 
   <ItemGroup>

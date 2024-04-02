@@ -15,30 +15,8 @@ using System.Xml;
 
 namespace WAConverter
 {
-    public class XamlConverter
+    public partial class XamlConverter
     {
-        const string avaloniaVersion = "11.0.8";
-
-        const string controlsVersion = "0.0.49-demo";
-
-        string[] ignoredControls = new string[]
-        {
-            "FakeFocusContainer",
-            "BarDockControl",
-            "TextBoxMaskBox",
-            "DPILabel",
-            "VTLScrollBar",
-            "HTLScrollBar",
-            "HCrkScrollBar",
-            "VCrkScrollBar",
-            "VGridVertScrollBar",
-            "VGridHorzScrollBar",
-            "FindControl",
-            "HScrollBar",
-            "VScrollBar",
-            "UpDownButtons",
-            "UpDownEdit"
-        };
         Dictionary<string, string> namespaceMapping;
 
         Dictionary<string, object> objectMappings;
@@ -51,170 +29,319 @@ namespace WAConverter
         Dictionary<Type, string> typesMapping;
         Dictionary<Type, string> editorValueSuffixMapping;
 
+        public string BaseType { get; internal set; }
+
         public XamlConverter()
         {
-            object[,] mappings = new object[,]
-            {
-            //!!! DO not add x:Name here. It is generated without mappings
-
-            {
-                "mxtl:TreeListControl",
-                new string[,] { { "Columns", "Columns" } }
-            },
-
-            {
-                "mxtl:TreeListColumn",
-                new string[,]
-                {
-                {
-                    "Name",
-                    "x:Name"
-                },
-                {
-                    "Caption",
-                    "Header"
-                },
-                {
-                    "Visible",
-                    "IsVisible"
-                },
-                {
-                    "VisibleIndex",
-                    "VisibleIndex"
-                },
-                {
-                    "ColumnEdit",
-                    "EditorProperties"
-                }
-                }
-            },
-
-            {
-                "mx:MxTabItem",
-                new string[,] { { "Text", "Header" }, }
-            },
-
-            {
-                "Button",
-                new string[,] { { "Text", "Content" }, }
-            },
-
-            {
-                "Label",
-                new string[,] { { "Text", "Content" }, }
-            },
-
-            {
-                "mxe:SplitContainerControl",
-                new string[,] { { "Horizontal", "Orientation" }, }
-            },
-            {
-                "mxe:SplitGroupPanel",
-                new string[,] { }
-            },
-
-            {
-                "mxe:GroupBox",
-                new string [,]
-                { { "ShowCaption", "ShowCaption" }, { "CaptionLocation", "CaptionLocation" }, { "Text", "Header" } }
-            },
-            {
-                "mxe:TextEditor",
-                new string[,] {{ "Properties.ReadOnly", "ReadOnly" } }
-            },
-            {
-                "TextBox",
-                new string[,] { { "Properties.ReadOnly", "IsReadOnly" } }
-            },
-            {
-                "mxe:ButtonEditor",
-                new string[,] { { "Properties.ReadOnly", "ReadOnly" } }
-            },
-            {
-                "mxe:SpinEditor",
-                new string[,] { { "Properties.ReadOnly", "ReadOnly" }, { "Minimum", "Minimum" }, { "Maximum", "Maximum" }, }
-            },
-            {
-                "ProgressBar",
-                new string[,] { { "Minimum", "Minimum" }, { "Maximum", "Maximum" }, }
-            },
-            {
-                "RadioButton",
-                new string[,] { { "Text", "Content" },}
-            },
-            {
-                "mxe:ComboBoxEditor",
-                new string[,] { { "Properties.ReadOnly", "ReadOnly" } }
-            },
-            {
-                "mxe:TextEditorProperties",
-                new string[] { }
-            },
-
-            {
-                "mxe:ButtonEditorProperties",
-                new string[] { }
-            },
-
-            {
-                "mxe:SpinEditorProperties",
-                new string[] { }
-            },
-
-            {
-                "mxe:CheckEditorProperties",
-                new string[] { }
-            },
-
-            {
-                "mxe:PopupEditorProperties",
-                new string[] { }
-            },
-
-            {
-                "mxe:ComboBoxEditorProperties",
-                new string[] { }
-            },
-            };
-            this.objectMappings = ConvertToDictionary(mappings);
+            this.objectMappings = ConvertToDictionary(propertiesMapping);
         }
+
+        #region Start conversion
+
+        public void StartConvert(Control target)
+        {
+            try
+            {
+                if (target.IsDesignerHosted())
+                    return;
+
+                var doc = new XmlDocument();
+                rootTypeName = target.IsDesignerHosted() ? target.Name : target.GetType().Name;
+                var fullName = target.GetType().FullName;
+                rootNamespace = fullName.Substring(0, fullName.LastIndexOf('.'));
+                CreateAppFromTemplate(rootNamespace);
+                var rootClassName = target.IsDesignerHosted() ? target.Name : target.GetType().FullName;
+                InitTypeMapping();
+                InitNamespaceMapping();
+                var isUserControl = target is UserControl;
+                var currentNode = CreateElement(doc, isUserControl ? "UserControl" : "Window");
+                foreach (var key in namespaceMapping.Keys)
+                    currentNode.SetAttribute(
+                        "xmlns" + (key.Length > 0 ? ":" + key : string.Empty),
+                        namespaceMapping[key]);
+                SetAttribute(currentNode, "x:Class", rootClassName);
+                if (!isUserControl)
+                {
+                    SetAttribute(currentNode, "Width", target.Width.ToString());
+                    SetAttribute(currentNode, "Height", target.Height.ToString());
+                    SetLocalizableProperty(currentNode, "Title", target.GetType().GetProperty("Text"), "Text", target);
+                }
+                doc.AppendChild(currentNode);
+
+                AvaloniaFieldInfo fi;
+                XmlElement scrollViewerNode;
+                CreateNewNode(new RootScrollViewer(), -1, -1, 1, currentNode, doc, out fi, out scrollViewerNode);
+
+                XmlElement newCurrentNode;
+                CreateNewNode(target, -1, -1, 1, scrollViewerNode, doc, out fi, out newCurrentNode);
+
+                radioButtonContainers.Clear();
+                ConvertControl(target, newCurrentNode, doc);
+                var dir = Directory.GetCurrentDirectory() + "\\Converted";
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+                var fileFullName = dir + "\\" + rootTypeName + ".axaml";
+                doc.Save(fileFullName);
+                var txt = File.ReadAllText(fileFullName);
+                txt = txt.Replace("x:=", "\n\tx:=").Replace("xmlns", "\n\txmlns");
+                File.WriteAllText(fileFullName, txt);
+                GenerateCodeFile(target, rootTypeName, rootNamespace);
+                GenerateViewModelFile(target, rootTypeName, rootNamespace);
+                AddResXFiles(rootTypeName);
+                ProcessImages(fileFullName, target);
+            }
+            catch (Exception e)
+            {
+                ShowError("Error converting: ", e);
+            }
+        }
+
+        #endregion
+
+        #region Generate markup
+
+        public void ConvertControl(Control parent, XmlNode convertedParent, XmlDocument doc)
+        {
+            var parentNode = convertedParent;
+            if (parent is GroupBox)
+            {
+                AvaloniaFieldInfo fi;
+                XmlElement stackPanelNode;
+                CreateNewNode(new UserControl(), -1, -1, 1, convertedParent, doc, out fi, out stackPanelNode);
+                parentNode = stackPanelNode;
+            }
+
+            var row = -1;
+            var column = -1;
+
+            var controls = parent.Controls.Cast<Control>();
+            if (parent is TableLayoutPanel panel)
+                controls = controls.OrderBy(c => panel.GetColumn(c));
+
+            foreach (var control in controls)
+            {
+                if (parent is TableLayoutPanel tablePanel)
+                {
+                    row = tablePanel.GetRow(control);
+                    column = tablePanel.GetColumn(control);
+                }
+                ConvertControlCore(control, row, column, 1, parentNode, doc);
+            }
+        }
+
+        private bool ConvertControlCore(Control control, int row, int column, int colSpan, XmlNode convertedParent, XmlDocument doc)
+        {
+            AvaloniaFieldInfo fi;
+            XmlElement currentNode;
+            if (ignoredControls.Contains(control.GetType().Name))
+                return false;
+            CreateNewNode(control, row, column, colSpan, convertedParent, doc, out fi, out currentNode);
+            AssignProperiesCore(currentNode, control);
+            if (!string.IsNullOrWhiteSpace(control.Name))
+                SetAttribute(currentNode, "x:Name", control.Name);
+            else if (control is Label)
+                SetAttribute(currentNode, "Classes", "LayoutItem");
+
+            if (ShouldAddEditorValue(control))
+                SetAttribute(currentNode, "EditorValue", $"{{Binding {AddSuffixToEditorValuePropertyName(control, fi.PropertyName)}}}");
+
+            if (ShouldAddItemsSource(control))
+                SetAttribute(currentNode, "ItemsSource", $"{{Binding {fi.PropertyName + "ItemsSource"}}}");
+
+            if (ShouldAddValue(control))
+                SetAttribute(currentNode, "Value", $"{{Binding {fi.PropertyName + "Value"}}}");
+
+            if (control is GroupBox)
+                SetAttribute(currentNode, "Margin", "8");
+
+            if (control is RadioButton radioButton)
+                AddRadioButtonAttributes(currentNode, radioButton, fi);
+            if (control is TableLayoutPanel tableLayoutPanel)
+                AddTableLayoutPanelAttributes(currentNode, tableLayoutPanel, fi);
+
+            SetMinWidth(currentNode, control);
+
+            if (ShouldAddCommand(control))
+                SetAttribute(currentNode, "Command", $"{{Binding {fi.CommandName}}}");
+            if (control.Controls.Count > 0 && !stopList.Any(item => control.GetType().IsSubclassOf(item)))
+                ConvertControl(control, currentNode, doc);
+            return true;
+        }
+
+        private void AddRadioButtonAttributes(XmlElement currentNode, RadioButton radioButton, AvaloniaFieldInfo fi)
+        {
+            SetAttribute(currentNode, "IsChecked", $"{{Binding {AddSuffixToEditorValuePropertyName(radioButton, fi.PropertyName)}}}");
+            var parent = radioButton.Parent;
+            var radioButtonName = radioButton.Name;
+            if (!radioButtonContainers.ContainsKey(parent) && !string.IsNullOrEmpty(radioButtonName))
+                radioButtonContainers.Add(parent, radioButtonName + "Group");
+            if (radioButtonContainers.ContainsKey(parent))
+                SetAttribute(currentNode, "GroupName", radioButtonContainers[parent]);
+        }
+
+        private void SetMinWidth(XmlElement currentNode, Control control)
+        {
+            if (ShouldAddMinWidthAttribute(control))
+                SetAttribute(currentNode, "MinWidth", control.Size.Width.ToString());
+        }
+
+        private void AddTableLayoutPanelAttributes(XmlElement currentNode, TableLayoutPanel layoutPanel, AvaloniaFieldInfo fi)
+        {
+            if (layoutPanel.ColumnCount == 0 || layoutPanel.RowCount == 0)
+                return;
+            var columnsString = "";
+            var rowsString = "";
+            foreach (var column in layoutPanel.ColumnStyles)
+            {
+                if (column is ColumnStyle columnStyle)
+                {
+                    switch (columnStyle.SizeType)
+                    {
+                        case SizeType.Absolute:
+                            columnsString += $"{columnStyle.Width.ToString(CultureInfo.InvariantCulture)} ";
+                            break;
+                        case SizeType.Percent:
+                            columnsString += $"{(columnStyle.Width / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
+                            break;
+                        default:
+                            columnsString += "Auto ";
+                            break;
+                    }
+                }
+            }
+            foreach (var row in layoutPanel.RowStyles)
+            {
+                if (row is RowStyle rowStyle)
+                {
+                    switch (rowStyle.SizeType)
+                    {
+                        case SizeType.Absolute:
+                            rowsString += $"{rowStyle.Height.ToString(CultureInfo.InvariantCulture)} ";
+                            break;
+                        case SizeType.Percent:
+                            rowsString += $"{(rowStyle.Height / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
+                            break;
+                        default:
+                            rowsString += "Auto ";
+                            break;
+                    }
+                }
+            }
+            if (!string.IsNullOrEmpty(columnsString))
+                SetAttribute(currentNode, "ColumnDefinitions", columnsString.Remove(columnsString.Length - 1, 1));
+            if (!string.IsNullOrEmpty(rowsString))
+                SetAttribute(currentNode, "RowDefinitions", rowsString.Remove(rowsString.Length - 1, 1));
+            SetAttribute(currentNode, "Margin", "8");
+        }
+
+        #endregion
+
+        #region Generate ViewModel
+
+        private string GenerateFields(Control target)
+        {
+            var builder = new StringBuilder();
+            foreach (var fi in Fields)
+            {
+                if (ShouldAddEditorValue(fi.Control))
+                    builder.AppendLine($"\t[ObservableProperty] {GetEditorValuePropertyType(fi.Control)} {AddSuffixToEditorValuePropertyName(fi.Control, fi.FieldName)};");
+                if (ShouldAddItemsSource(fi.Control))
+                    builder.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.FieldName + "ItemsSource"};");
+                if (ShouldAddValue(fi.Control))
+                    builder.AppendLine($"\t[ObservableProperty] int {fi.FieldName + "Value"};");
+                if (fi.Control is RadioButton)
+                    builder.AppendLine($"\t[ObservableProperty] bool {fi.FieldName + "Checked"}{(((RadioButton)fi.Control).Checked ? " = true" : "")};");
+            }
+            if (target is Form)
+                builder.AppendLine("\tpublic event Action RequestClose;");
+            return builder.ToString();
+        }
+
+        private string GenerateMethods()
+        {
+            var builder = new StringBuilder();
+            foreach (var fi in Fields)
+            {
+                if (ShouldAddCommand(fi.Control))
+                {
+                    builder.AppendLine($"\t[RelayCommand(CanExecute=nameof(CanExecute{fi.Name}))]");
+                    builder.AppendLine($"\tvoid {fi.Name}(object parameter)");
+                    builder.AppendLine("\t{");
+                    if (fi.CommandName.StartsWith("ok") ||
+                        fi.CommandName.StartsWith("cancel") ||
+                        fi.CommandName.StartsWith("close"))
+                        builder.AppendLine("\t\tRequestClose?.Invoke();");
+                    builder.AppendLine("\t}");
+                    builder.AppendLine($"\tbool CanExecute{fi.Name}(object parameter)\n\t{{");
+                    builder.AppendLine("\t\treturn true;");
+                    builder.AppendLine("\t}");
+                }
+            }
+            return builder.ToString();
+        }
+        #endregion
+
+        #region Resx file management
 
         private void AddResXFiles(string rootTypeName)
         {
-            string dir = Directory.GetCurrentDirectory();
-            while(!Directory.GetFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly).Any() && dir != null)
+            var dir = Directory.GetCurrentDirectory();
+            while (!Directory.GetFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly).Any() && dir != null)
                 dir = Path.GetDirectoryName(dir);
-            if(dir == null)
+            if (dir == null)
                 return;
-            string dirConv = Directory.GetCurrentDirectory() + "\\Converted";
+            var dirConv = Directory.GetCurrentDirectory() + "\\Converted";
 
             string[] files = Directory.GetFiles(dir, rootTypeName + "*.resx", SearchOption.AllDirectories);
-            foreach(string file in files)
+            foreach (var file in files)
             {
-                string copiedFile = dirConv + "\\" + Path.GetFileName(file);
-                if(file.Equals(copiedFile))
+                var copiedFile = dirConv + "\\" + Path.GetFileName(file);
+                if (file.Equals(copiedFile))
                     continue;
                 try
                 {
-                    if(File.Exists(copiedFile))
+                    if (File.Exists(copiedFile))
                     {
                         File.SetAttributes(copiedFile, FileAttributes.Normal);
                         File.Delete(copiedFile);
                     }
                     File.Copy(file, copiedFile, true);
-                } catch
+                }
+                catch
                 {
                 }
                 ResXCleaner.CleanupFile(copiedFile);
             }
         }
 
-        private void AppendParameter(StringBuilder b, string param)
+        bool AssignValuePropertyFromResource(XmlElement node, string propertyName, object src, PropertyInfo pi)
         {
-            if(b.Length > 0)
-                b.Append(", ");
-            b.Append(param);
+            var propertyOwnerName = (src as Control)?.Name;
+            if ((pi.Name == "Text" || pi.Name == "Caption") && propertyOwnerName != null)
+            {
+                SetLocalizableProperty(node, propertyName, pi, propertyOwnerName, src);
+                return true;
+            }
+            return false;
         }
+
+        bool ShouldSetLocalizableProperty()
+        {
+            return false; //TODO detect is resx contains localizable value for a property
+        }
+
+        private void SetLocalizableProperty(XmlElement node, string propertyName, PropertyInfo pi, string propertyOwnerName, object instance)
+        {
+            string value = "";
+            if (ShouldSetLocalizableProperty())
+                value = $"{{{$"x:Static p:{rootTypeName}.{propertyOwnerName}_{pi.Name}"}}}";
+            else
+                value = (string)pi.GetValue(instance);
+            SetAttribute(node, propertyName, value);
+        }
+        #endregion
+
+        #region Utils
 
         private void ApplyRowAndColumn(XmlElement currentNode, int currentNodeRow, int currentNodeColumn, int colSpan)
         {
@@ -232,7 +359,7 @@ namespace WAConverter
             parentNode.AppendChild(collNode);
             foreach(var item in enumerable)
             {
-                XmlElement xmlItem = CreateObjectNode(collNode.OwnerDocument, item);
+                var xmlItem = CreateObjectNode(collNode.OwnerDocument, item);
                 if(xmlItem == null)
                     continue;
                 AssignProperiesCore(xmlItem, item);
@@ -245,7 +372,7 @@ namespace WAConverter
             var nestedNode = CreateElement(parentNode.OwnerDocument, parentNode.Name + "." + propTo);
             parentNode.AppendChild(nestedNode);
 
-            XmlElement xmlItem = CreateObjectNode(nestedNode.OwnerDocument, nestedObject);
+            var xmlItem = CreateObjectNode(nestedNode.OwnerDocument, nestedObject);
             if(xmlItem == null)
                 return;
             nestedNode.AppendChild(xmlItem);
@@ -257,17 +384,14 @@ namespace WAConverter
         {
             Dictionary<string, string> mappings = GetPropertiesMappings(node.Name);
             if(mappings == null)
-            {
                 return;
-            }
-
             foreach(var map in mappings)
             {
-                string propFrom = map.Key;
-                string propTo = map.Value;
+                var propFrom = map.Key;
+                var propTo = map.Value;
 
-                object propertyOwner = src;
-                PropertyInfo pi = GetPropertyInfo(propFrom, ref propertyOwner);
+                var propertyOwner = src;
+                var pi = GetPropertyInfo(propFrom, ref propertyOwner);
                 if(pi == null)
                     continue;
                 var attr = pi.GetCustomAttribute<DesignerSerializationVisibilityAttribute>();
@@ -276,158 +400,21 @@ namespace WAConverter
                 {
                     if(!AssignValuePropertyFromResource(node, propTo, propertyOwner, pi))
                         AssignValueProperty(node, propTo, propertyOwner, pi);
-                } else if(pi.GetValue(propertyOwner) is IEnumerable)
-                {
+                } 
+                else if(pi.GetValue(propertyOwner) is IEnumerable)
                     AssignCollectionProperties(node, propTo, (IEnumerable)pi.GetValue(propertyOwner));
-                } else if(pi.GetValue(propertyOwner) is object)
-                {
+                else if(pi.GetValue(propertyOwner) is object)
                     AssignNestedObjectProperties(node, propTo, pi.GetValue(propertyOwner));
-                }
             }
         }
 
         private void AssignValueProperty(XmlElement node, string propertyName, object source, PropertyInfo pi)
         {
             DefaultValueAttribute att = pi.GetCustomAttribute<DefaultValueAttribute>();
-            object value = pi.GetValue(source);
+            var value = pi.GetValue(source);
             if(att != null && object.Equals(att.Value, value))
                 return;
             SetAttribute(node, propertyName, Convert.ToString(value));
-        }
-
-        bool AssignValuePropertyFromResource(XmlElement node, string propertyName, object src, PropertyInfo pi)
-        {
-            string propertyOwnerName = (src as Control)?.Name;
-            if((pi.Name == "Text" || pi.Name == "Caption") && propertyOwnerName != null)
-            {
-                SetLocalizableProperty(node, propertyName, pi, propertyOwnerName, src);
-                return true;
-            }
-            return false;
-        }
-
-        bool ShouldSetLocalizableProperty()
-        {
-            return false; //TODO detect is resx contains localizable value for a property
-        }
-
-        private void SetLocalizableProperty(
-            XmlElement node,
-            string propertyName,
-            PropertyInfo pi,
-            string propertyOwnerName,
-            object instance)
-        {
-            string value = "";
-            if(ShouldSetLocalizableProperty())
-            {
-                value = $"{{{$"x:Static p:{rootTypeName}.{propertyOwnerName}_{pi.Name}"}}}";
-            } else
-            {
-                value = (string)pi.GetValue(instance);
-            }
-            SetAttribute(node, propertyName, value);
-        }
-
-        private Dictionary<string, object> ConvertToDictionary(object[,] mappings)
-        {
-            Dictionary<string, object> result = new Dictionary<string, object>();
-            for(int i = 0; i < mappings.GetLength(0); i++)
-            {
-                object value = mappings[i, 1];
-                if(value is string)
-                {
-                    result.Add((string)mappings[i, 0], mappings[i, 1]);
-                } else if(value is string[,])
-                {
-                    Dictionary<string, string> props = ConvertToStringDictionary((string[,])value);
-                    try
-                    {
-                        result.Add((string)mappings[i, 0], props);
-                    } catch(Exception e)
-                    {
-                        MessageBox.Show("Key is already exists: " + (string)mappings[i, 0]);
-                        throw e;
-                    }
-                }
-            }
-            return result;
-        }
-
-        private Dictionary<string, string> ConvertToStringDictionary(string[,] mappings)
-        {
-            Dictionary<string, string> result = new Dictionary<string, string>();
-            for(int i = 0; i < mappings.GetLength(0); i++)
-            {
-                object value = mappings[i, 1];
-                if(value is string)
-                {
-                    try
-                    {
-                        result.Add(mappings[i, 0], mappings[i, 1]);
-                    } catch(Exception e)
-                    {
-                        MessageBox.Show("Key already exists: " + mappings[i, 0]);
-                        throw e;
-                    }
-                }
-            }
-            return result;
-        }
-
-        void CreateAppFromTemplate(string rootNamespace)
-        {
-            CreateAppFromTemplateCore(rootNamespace, "App.axaml", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "App.axaml.cs", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "ConvertedAvalonia.csproj", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "MainWindow.axaml", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "MainWindow.axaml.cs", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "nuget.config", controlsVersion, avaloniaVersion);
-            CreateAppFromTemplateCore(rootNamespace, "Program.cs", controlsVersion, avaloniaVersion);
-
-            var packageName = $"Eremex.Avalonia.Controls.{controlsVersion}.nupkg";
-            try
-            {
-                var templateName = Assembly.GetAssembly(typeof(WAForm))
-                    .GetManifestResourceNames()
-                    .Single(x => x.EndsWith(packageName));
-                Stream resource = Assembly.GetAssembly(typeof(WAForm)).GetManifestResourceStream(templateName);
-                if(resource != null)
-                {
-                    string dir = Directory.GetCurrentDirectory() + "\\Converted\\packages\\";
-                    if(!Directory.Exists(dir))
-                        Directory.CreateDirectory(dir);
-                    using(FileStream fs = new FileStream(dir + packageName, FileMode.Create))
-                        resource.CopyTo(fs);
-                }
-            } catch(Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
-        }
-
-        void CreateAppFromTemplateCore(
-            string namespaceName,
-            string templateName,
-            string controlsVersion,
-            string avaloniaVersion)
-        {
-            try
-            {
-                string template = LoadTemplate(templateName);
-                template = template.Replace("@NamespaceName@", namespaceName);
-                template = template.Replace("@AvaloniaVersion@", avaloniaVersion);
-                template = template.Replace("@ControlsVersion@", controlsVersion);
-
-                string dir = Directory.GetCurrentDirectory() + "\\Converted";
-                if(!Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-                string fileFullName = dir + "\\" + templateName;
-                File.WriteAllText(fileFullName, template);
-            } catch(Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
         }
 
         private XmlElement CreateElement(XmlDocument doc, string nameWithPrefix)
@@ -443,7 +430,7 @@ namespace WAConverter
         {
             if(item == null)
                 return null;
-            string name = GetMappedType(item.GetType());
+            var name = GetMappedType(item.GetType());
             if(name == null)
             {
                 ShowError("Cannot map object: " + item.GetType().Name, null);
@@ -456,111 +443,6 @@ namespace WAConverter
         {
             string[] items = type.Split(':');
             return items.Length == 2 ? items[1] : items[0];
-        }
-
-        private void GenerateCodeFile(Control target, string rootTypeName, string namespaceName)
-        {
-            string vmClass = rootTypeName + "ViewModel";
-
-            try
-            {
-                string baseType = target is Form ? "Window" : "UserControl";
-                string templateName = "CodeFileTemplate.cs";
-                string template = LoadTemplate(templateName);
-                template = template.Replace("@BaseClass@", baseType);
-                template = template.Replace("@TypeClass@", rootTypeName);
-                template = template.Replace("@NamespaceName@", namespaceName);
-                template = template.Replace("@ViewModelClass@", vmClass);
-
-                string dir = Directory.GetCurrentDirectory() + "\\Converted";
-                string fileFullName = dir + "\\" + rootTypeName + ".axaml.cs";
-                File.WriteAllText(fileFullName, template);
-            } catch(Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
-        }
-
-        private string GenerateFields(Control target)
-        {
-            StringBuilder b = new StringBuilder();
-            foreach(var fi in Fields)
-            {
-                if (fi.Control is ComboBox || fi.Control is CheckBox || fi.Control is NumericUpDown || ((fi.Control is TextBox) && !fi.Control.GetType().IsSubclassOf(typeof(TextBox))))
-                {
-                    b.AppendLine($"\t[ObservableProperty] {GetPropertyType(fi.Control)} {AddSuffixToEditorValuePropertyName(fi.Control, fi.FieldName)};");
-                }
-                else if (fi.Control is ComboBox)
-                    b.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.FieldName + "ItemsSource"};");
-                else if (fi.Control is ProgressBar)
-                    b.AppendLine($"\t[ObservableProperty] int {fi.FieldName + "Value"};");
-                else if (fi.Control is RadioButton)
-                    b.AppendLine($"\t[ObservableProperty] bool {fi.FieldName + "Checked"}{(((RadioButton)fi.Control).Checked ? " = true" : "")};");
-            }
-            if(target is Form)
-            {
-                b.AppendLine("\tpublic event Action RequestClose;");
-            }
-            return b.ToString();
-        }
-
-        private string GenerateFieldsInitialization(string viewModelClassName)
-        {
-            StringBuilder b = new StringBuilder();
-            foreach(var fi in Fields)
-            {
-            }
-            return b.ToString();
-        }
-
-        private string GenerateMethods()
-        {
-            StringBuilder b = new StringBuilder();
-            foreach(var fi in Fields)
-            {
-                
-                if(IsCommandControl(fi.Control))
-                {
-                    b.AppendLine($"\t[RelayCommand(CanExecute=nameof(CanExecute{fi.Name}))]");
-                    b.AppendLine($"\tvoid {fi.Name}(object parameter)");
-                    b.AppendLine("\t{");
-                    if(fi.CommandName.StartsWith("ok") ||
-                        fi.CommandName.StartsWith("cancel") ||
-                        fi.CommandName.StartsWith("close"))
-                        b.AppendLine("\t\tRequestClose?.Invoke();");
-                    b.AppendLine("\t}");
-                    b.AppendLine($"\tbool CanExecute{fi.Name}(object parameter)\n\t{{");
-                    b.AppendLine("\t\treturn true;");
-                    b.AppendLine("\t}");
-                }
-            }
-            return b.ToString();
-        }
-
-        private void GenerateViewModelFile(Control target, string rootTypeName, string namespaceName)
-        {
-            string vmClass = rootTypeName + "ViewModel";
-
-            try
-            {
-                string baseType = target is Form ? "Window" : "UserControl";
-                string templateName = "ViewModelClassTemplate.cs";
-                string template = LoadTemplate(templateName);
-                template = template.Replace("@BaseClass@", baseType);
-                template = template.Replace("@TypeClass@", rootTypeName);
-                template = template.Replace("@NamespaceName@", namespaceName);
-                template = template.Replace("@ViewModelClass@", vmClass);
-                template = template.Replace("@Fields@", GenerateFields(target));
-                template = template.Replace("@FieldsInitialization@", GenerateFieldsInitialization(vmClass));
-                template = template.Replace("@Methods@", GenerateMethods());
-
-                string dir = Directory.GetCurrentDirectory() + "\\Converted";
-                string fileFullName = dir + "\\" + vmClass + ".cs";
-                File.WriteAllText(fileFullName, template);
-            } catch(Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
         }
 
         string GetMappedType(Type type)
@@ -588,7 +470,7 @@ namespace WAConverter
         {
             string[] items = propFrom.Split('.');
             PropertyInfo pi = null;
-            object nextSrc = src;
+            var nextSrc = src;
             for(int i = 0; i < items.Length; i++)
             {
                 src = nextSrc;
@@ -607,90 +489,11 @@ namespace WAConverter
             return pi;
         }
 
-        private string GetPropertyType(Control control)
-        {
-            if(control is NumericUpDown)
-                return "Decimal";
-            if(control is CheckBox)
-                return "bool";
-            if(control is TextBox)
-                return "string";
-            return "object";
-        }
-
-        void InitNamespaceMapping()
-        {
-            namespaceMapping = new Dictionary<string, string>
-            {
-                { string.Empty, "https://github.com/avaloniaui" },
-                { "x", "http://schemas.microsoft.com/winfx/2006/xaml" },
-                { "d", "http://schemas.microsoft.com/expression/blend/2008" },
-                { "mc", "http://schemas.openxmlformats.org/markup-compatibility/2006" },
-                { "mx", "clr-namespace:Eremex.AvaloniaUI.Controls;assembly=Eremex.Avalonia.Controls" },
-                { "mxtl", "clr-namespace:Eremex.AvaloniaUI.Controls.TreeList;assembly=Eremex.Avalonia.Controls" },
-                { "mxe", "clr-namespace:Eremex.AvaloniaUI.Controls.Editors;assembly=Eremex.Avalonia.Controls" },
-                { "mxpg", "clr-namespace:Eremex.AvaloniaUI.Controls.PropertyGrid;assembly=Eremex.Avalonia.Controls" },
-                { "mxb", "clr-namespace:Eremex.AvaloniaUI.Controls.Bars;assembly=Eremex.Avalonia.Controls" },
-                { "mxu", "clr-namespace:Eremex.AvaloniaUI.Controls.Utils;assembly=Eremex.Avalonia.Controls" },
-                { "p", $"clr-namespace:{rootNamespace}.{rootTypeName}" },
-            };
-        }
-
-        void InitTypeMapping()
-        {
-            typesMapping = new Dictionary<Type, string>
-            {
-                { typeof(GroupBox), "mxe:GroupBox" },
-                { typeof(TableLayoutPanel), "Grid" },
-                { typeof(ProgressBar), "ProgressBar" },
-
-                { typeof(NumericUpDown), "mxe:SpinEditor" },
-                { typeof(ComboBox), "mxe:ComboBoxEditor" },
-                { typeof(CheckBox), "mxe:CheckEditor" },
-                { typeof(DataGridView), "mxtl:TreeListControl" },
-                { typeof(TextBox), "mxe:TextEditor" },
-                { typeof(MonthCalendar), "mxe:CalendarControl" },
-                { typeof(Form), "StackPanel" },
-                { typeof(UserControl), "StackPanel" },
-                { typeof(RootScrollViewer), "ScrollViewer" },
-                
-            };
-            editorValueSuffixMapping = new Dictionary<Type, string>
-            {
-                { typeof(ComboBox), "SelectedValue" },
-                { typeof(CheckBox), "Checked" },
-                { typeof(RadioButton), "Checked" },
-                { typeof(NumericUpDown), "Value" },
-                { typeof(TextBox), "TextValue" },
-            };
-        }
-
-        string LoadTemplate(string resourceTemplateName)
-        {
-            var templateName = Assembly.GetAssembly(typeof(WAForm))
-                .GetManifestResourceNames()
-                .Single(x => x.EndsWith(resourceTemplateName));
-
-            Stream resource = Assembly.GetAssembly(typeof(WAForm)).GetManifestResourceStream(templateName);
-            if(resource == null)
-            {
-                return null;
-            }
-            using(StreamReader reader = new StreamReader(resource))
-            {
-                return reader.ReadToEnd();
-            }
-        }
-
         private static void ProcessImages(string fName, Control target)
         {
         }
 
-        private static void SaveImageCollection(
-            Control target,
-            IEnumerable<Image> images,
-            string directory,
-            int imageCollectionCounter)
+        private static void SaveImageCollection(Control target, IEnumerable<Image> images, string directory, int imageCollectionCounter)
         {
             int counter = 0;
             foreach(Image image in images)
@@ -739,84 +542,6 @@ namespace WAConverter
 
         List<AvaloniaFieldInfo> Fields { get; } = new List<AvaloniaFieldInfo>();
 
-        protected bool IsCommandControl(Control control) { return control is Button; }
-
-        public void ConvertControl(Control parent, XmlNode convertedParent, XmlDocument doc)
-        {
-            var parentNode = convertedParent;
-            if(parent is GroupBox)
-            {
-                AvaloniaFieldInfo fi;
-                XmlElement stackPanelNode;
-                CreateNewNode(new UserControl(), -1, -1, 1, convertedParent, doc, out fi, out stackPanelNode);
-                parentNode = stackPanelNode;
-            }
-
-            var row = -1;
-            var column = -1;
-
-            var controls = parent.Controls.Cast<Control>();
-            if (parent is TableLayoutPanel panel)
-                controls = controls.OrderBy(c => panel.GetColumn(c));
-
-            foreach (var control in controls)
-            {
-                if(parent is TableLayoutPanel tablePanel)
-                {
-                    row = tablePanel.GetRow(control);
-                    column = tablePanel.GetColumn(control);
-                }
-                ConvertControlCore(control, row, column, 1, parentNode, doc);
-            }            
-        }
-
-        public bool ConvertControlCore(
-            Control control,
-            int row,
-            int column,
-            int colSpan,
-            XmlNode convertedParent,
-            XmlDocument doc)
-        {
-            AvaloniaFieldInfo fi;
-            XmlElement currentNode;
-            if (ignoredControls.Contains(control.GetType().Name))
-                return false;
-            CreateNewNode(control, row, column, colSpan, convertedParent, doc, out fi, out currentNode);
-            AssignProperiesCore(currentNode, control);
-            if (!string.IsNullOrWhiteSpace(control.Name))
-                SetAttribute(currentNode, "x:Name", control.Name);
-            else if (control is Label)
-                SetAttribute(currentNode, "Classes", "LayoutItem");
-
-            if (control is ComboBox || control is CheckBox || control is NumericUpDown || ((fi.Control is TextBox) && !fi.Control.GetType().IsSubclassOf(typeof(TextBox))))
-                SetAttribute(currentNode, "EditorValue", $"{{Binding {AddSuffixToEditorValuePropertyName(control, fi.PropertyName)}}}");
-
-            if(control is ComboBox)
-                SetAttribute(currentNode, "ItemsSource", $"{{Binding {fi.PropertyName + "ItemsSource"}}}");
-
-            if (control is ProgressBar)
-                SetAttribute(currentNode, "Value", $"{{Binding {fi.PropertyName + "Value"}}}");
-
-            if (control is GroupBox)
-                SetAttribute(currentNode, "Margin", "8");
-
-            if (control is RadioButton radioButton)
-                AddRadioButtonAttributes(currentNode, radioButton, fi);
-            if (control is TableLayoutPanel tableLayoutPanel)
-                AddTableLayoutPanelAttributes(currentNode, tableLayoutPanel, fi);
-
-            SetMinWidth(currentNode, control);
-
-            if (IsCommandControl(control))
-            {
-                SetAttribute(currentNode, "Command", $"{{Binding {fi.CommandName}}}");
-            }
-            if (control.Controls.Count > 0 && !stopList.Any(item => control.GetType().IsSubclassOf(item)))
-                ConvertControl(control, currentNode, doc);
-            return true;
-        }
-
         private string AddSuffixToEditorValuePropertyName(Control control, string name)
         {
             string suffix = null;
@@ -824,72 +549,6 @@ namespace WAConverter
             if(hasElement)
                 return name + suffix;
             return name;
-        }
-
-        private void AddRadioButtonAttributes(XmlElement currentNode, RadioButton radioButton, AvaloniaFieldInfo fi)
-        {
-            SetAttribute(currentNode, "IsChecked", $"{{Binding {AddSuffixToEditorValuePropertyName(radioButton, fi.PropertyName)}}}");
-            var parent = radioButton.Parent;
-            var radioButtonName = radioButton.Name;
-            if (!radioButtonContainers.ContainsKey(parent) && !string.IsNullOrEmpty(radioButtonName))
-                radioButtonContainers.Add(parent, radioButtonName + "Group");
-            if(radioButtonContainers.ContainsKey(parent))
-                SetAttribute(currentNode, "GroupName", radioButtonContainers[parent]);
-        }
-
-        private void SetMinWidth(XmlElement currentNode, Control control)
-        {
-            if (control is TextBox || control is ComboBox || control is NumericUpDown || control is ProgressBar)
-                SetAttribute(currentNode, "MinWidth", control.Size.Width.ToString());
-        }
-
-        private void AddTableLayoutPanelAttributes(XmlElement currentNode, TableLayoutPanel layoutPanel, AvaloniaFieldInfo fi)
-        {
-            if(layoutPanel.ColumnCount == 0 || layoutPanel.RowCount == 0)
-                return;
-            var columnsString = "";
-            var rowsString = "";
-            foreach(var column in layoutPanel.ColumnStyles)
-            {
-                if (column is ColumnStyle columnStyle)
-                {
-                    switch (columnStyle.SizeType)
-                    {
-                        case SizeType.Absolute: 
-                            columnsString += $"{columnStyle.Width.ToString(CultureInfo.InvariantCulture)} ";
-                            break;
-                        case SizeType.Percent:
-                            columnsString += $"{(columnStyle.Width / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
-                            break;
-                        default:
-                            columnsString += "Auto ";
-                            break;
-                    }
-                }
-            }
-            foreach (var row in layoutPanel.RowStyles)
-            {
-                if (row is RowStyle rowStyle)
-                {
-                    switch (rowStyle.SizeType)
-                    {
-                        case SizeType.Absolute:
-                            rowsString += $"{rowStyle.Height.ToString(CultureInfo.InvariantCulture)} ";
-                            break;
-                        case SizeType.Percent:
-                            rowsString += $"{(rowStyle.Height / 100.0).ToString(CultureInfo.InvariantCulture)}* ";
-                            break;
-                        default:
-                            rowsString += "Auto ";
-                            break;
-                    }
-                }
-            }
-            if(!string.IsNullOrEmpty(columnsString))
-                SetAttribute(currentNode, "ColumnDefinitions", columnsString.Remove(columnsString.Length - 1, 1));
-            if (!string.IsNullOrEmpty(rowsString))
-                SetAttribute(currentNode, "RowDefinitions", rowsString.Remove(rowsString.Length - 1, 1));
-            SetAttribute(currentNode, "Margin", "8");
         }
 
         private void CreateNewNode(Control control, int row, int column, int colSpan, XmlNode convertedParent, XmlDocument doc, out AvaloniaFieldInfo fi, out XmlElement currentNode)
@@ -924,65 +583,16 @@ namespace WAConverter
                 MessageBox.Show(composedMessage);
         }
 
-        public void StartConvert(Control target)
+        private void AppendParameter(StringBuilder b, string param)
         {
-            try
-            {
-                if(target.IsDesignerHosted())
-                    return;
-
-                XmlDocument doc = new XmlDocument();
-                rootTypeName = target.IsDesignerHosted() ? target.Name : target.GetType().Name;
-                var fullName = target.GetType().FullName;
-                rootNamespace = fullName.Substring(0, fullName.LastIndexOf('.'));
-                CreateAppFromTemplate(rootNamespace);
-                string rootClassName = target.IsDesignerHosted() ? target.Name : target.GetType().FullName;
-                InitTypeMapping();
-                InitNamespaceMapping();
-                bool isUserControl = target is UserControl;
-                var currentNode = CreateElement(doc, isUserControl ? "UserControl" : "Window");
-                foreach(var key in namespaceMapping.Keys)
-                    currentNode.SetAttribute(
-                        "xmlns" + (key.Length > 0 ? ":" + key : string.Empty),
-                        namespaceMapping[key]);
-                SetAttribute(currentNode, "x:Class", rootClassName);
-                if(!isUserControl)
-                {
-                    SetAttribute(currentNode, "Width", target.Width.ToString());
-                    SetAttribute(currentNode, "Height", target.Height.ToString());
-                    SetLocalizableProperty(currentNode, "Title", target.GetType().GetProperty("Text"), "Text", target);
-                }
-                doc.AppendChild(currentNode);
-
-                AvaloniaFieldInfo fi;
-                XmlElement scrollViewerNode;
-                CreateNewNode(new RootScrollViewer(), -1, -1, 1, currentNode, doc, out fi, out scrollViewerNode);
-
-                XmlElement newCurrentNode;
-                CreateNewNode(target, -1, -1, 1, scrollViewerNode, doc, out fi, out newCurrentNode);
-                
-                radioButtonContainers.Clear();
-                ConvertControl(target, newCurrentNode, doc);
-                string dir = Directory.GetCurrentDirectory() + "\\Converted";
-                if(!Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-                string fileFullName = dir + "\\" + rootTypeName + ".axaml";
-                doc.Save(fileFullName);
-                var txt = File.ReadAllText(fileFullName);
-                txt = txt.Replace("x:=", "\n\tx:=").Replace("xmlns", "\n\txmlns");
-                File.WriteAllText(fileFullName, txt);
-                GenerateCodeFile(target, rootTypeName, rootNamespace);
-                GenerateViewModelFile(target, rootTypeName, rootNamespace);
-                AddResXFiles(rootTypeName);
-                ProcessImages(fileFullName, target);
-            } catch(Exception e)
-            {
-                ShowError("Error converting: ", e);
-            }
+            if (b.Length > 0)
+                b.Append(", ");
+            b.Append(param);
         }
 
-        public string BaseType { get; internal set; }
+        #endregion
 
+        #region AvaloniaFieldInfo
         internal class AvaloniaFieldInfo
         {
             string name;
@@ -1064,6 +674,7 @@ namespace WAConverter
 
             public string Type { get; set; }
         }
+        #endregion
 
         Dictionary<Control, string> radioButtonContainers = new Dictionary<Control, string>();
         internal class RootScrollViewer : Control { }
