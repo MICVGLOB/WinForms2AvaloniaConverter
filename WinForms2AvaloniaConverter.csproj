@@ -38,7 +38,7 @@
     <EmbeddedResource Include="WAConverter\AppTemplate\ConvertedAvalonia.csproj" />
     <EmbeddedResource Include="WAConverter\AppTemplate\MainWindow.axaml" />
     <EmbeddedResource Include="WAConverter\AppTemplate\nuget.config" />
-    <EmbeddedResource Include="WAConverter\AppTemplate\packages\Eremex.Avalonia.Controls.0.0.49-demo.nupkg" />
+    <EmbeddedResource Include="WAConverter\AppTemplate\packages\Eremex.Avalonia.Controls.0.0.99-demo.nupkg" />
   </ItemGroup>
 
 </Project>
