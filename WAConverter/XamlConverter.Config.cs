@@ -43,7 +43,7 @@ namespace WAConverter
                 { typeof(NumericUpDown), "mxe:SpinEditor" },
                 { typeof(ComboBox), "mxe:ComboBoxEditor" },
                 { typeof(CheckBox), "mxe:CheckEditor" },
-                { typeof(DataGridView), "mxtl:TreeListControl" },
+                { typeof(DataGridView), "mxdg:DataGridControl" },
                 { typeof(TextBox), "mxe:TextEditor" },
                 { typeof(MonthCalendar), "mxe:CalendarControl" },
                 { typeof(Form), "StackPanel" },
@@ -58,6 +58,7 @@ namespace WAConverter
                 { typeof(RadioButton), "Checked" },
                 { typeof(NumericUpDown), "Value" },
                 { typeof(TextBox), "TextValue" },
+                { typeof(DataGridView), "FocusedItem" },
             };
         }
 
@@ -73,6 +74,7 @@ namespace WAConverter
                 { "mxtl", "clr-namespace:Eremex.AvaloniaUI.Controls.TreeList;assembly=Eremex.Avalonia.Controls" },
                 { "mxe", "clr-namespace:Eremex.AvaloniaUI.Controls.Editors;assembly=Eremex.Avalonia.Controls" },
                 { "mxpg", "clr-namespace:Eremex.AvaloniaUI.Controls.PropertyGrid;assembly=Eremex.Avalonia.Controls" },
+                { "mxdg", "clr-namespace:Eremex.AvaloniaUI.Controls.DataGrid;assembly=Eremex.Avalonia.Controls" },
                 { "mxb", "clr-namespace:Eremex.AvaloniaUI.Controls.Bars;assembly=Eremex.Avalonia.Controls" },
                 { "mxu", "clr-namespace:Eremex.AvaloniaUI.Controls.Utils;assembly=Eremex.Avalonia.Controls" },
                 { "p", $"clr-namespace:{rootNamespace}.{rootTypeName}" },
@@ -112,6 +114,37 @@ namespace WAConverter
                     "ColumnEdit",
                     "EditorProperties"
                 }
+                }
+            },
+
+            {
+                "mxdg:DataGridControl",
+                new string[,] { { "AutoGenerateColumns", "AutoGenerateColumns" }, }
+            },
+            {
+                "mxdg:GridColumn",
+                new string[,]
+            {
+                {
+                    "DataPropertyName",
+                    "FieldName"
+                },
+                {
+                    "Visible",
+                    "IsVisible"
+                },
+                {
+                    "HeaderText",
+                    "Header"
+                },
+                {
+                    "Width",
+                    "Width"
+                },
+                {
+                    "MinimumWidth",
+                    "MinWidth"
+                },
                 }
             },
 
@@ -201,6 +234,10 @@ namespace WAConverter
                 "mxe:ComboBoxEditorProperties",
                 new string[] { }
             },
+            {
+                "Panel",
+                new string[,] { { "Height", "Height" },}
+            },
 };
 
 
@@ -209,7 +246,9 @@ namespace WAConverter
 
         private bool ShouldAddEditorValue(Control control) => control is ComboBox || control is CheckBox || control is NumericUpDown || ((control is TextBox) && !control.GetType().IsSubclassOf(typeof(TextBox)));
 
-        private bool ShouldAddItemsSource(Control control) => control is ComboBox;
+        private bool ShouldAddItemsSource(Control control) => control is ComboBox || control is DataGridView;
+
+        private bool ShouldAddFocusedItem(Control control) => control is DataGridView;
 
         private bool ShouldAddValue(Control control) => control is ProgressBar;
 

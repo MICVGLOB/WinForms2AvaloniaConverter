@@ -115,6 +115,12 @@ namespace WAConverter
             var column = -1;
 
             var controls = parent.Controls.Cast<Control>();
+
+            if(parent is DataGridView dataGridView)
+            {
+                AddDataGridColumns(dataGridView.Columns, parentNode, doc);
+                return;
+            }
             if (parent is TableLayoutPanel panel)
                 controls = controls.OrderBy(c => panel.GetColumn(c));
 
@@ -125,7 +131,14 @@ namespace WAConverter
                     row = tablePanel.GetRow(control);
                     column = tablePanel.GetColumn(control);
                 }
-                ConvertControlCore(control, row, column, 1, parentNode, doc);
+                if(control is DataGridView)
+                {
+                    var panelNode = CreateElement(doc, "Panel");
+                    AssignProperiesCore(panelNode, control);
+                    parentNode.AppendChild(panelNode);
+                    ConvertControlCore(control, row, column, 1, panelNode, doc);
+                } else
+                    ConvertControlCore(control, row, column, 1, parentNode, doc);
             }
         }
 
@@ -144,6 +157,9 @@ namespace WAConverter
 
             if (ShouldAddEditorValue(control))
                 SetAttribute(currentNode, "EditorValue", $"{{Binding {AddSuffixToEditorValuePropertyName(control, fi.PropertyName)}}}");
+
+            if (ShouldAddFocusedItem(control))
+                SetAttribute(currentNode, "FocusedItem", $"{{Binding {AddSuffixToEditorValuePropertyName(control, fi.PropertyName)}}}");
 
             if (ShouldAddItemsSource(control))
                 SetAttribute(currentNode, "ItemsSource", $"{{Binding {fi.PropertyName + "ItemsSource"}}}");
@@ -234,6 +250,16 @@ namespace WAConverter
             SetAttribute(currentNode, "Margin", "8");
         }
 
+        private void AddDataGridColumns(DataGridViewColumnCollection columns, XmlNode parent, XmlDocument doc)
+        {
+            foreach (DataGridViewColumn column in columns)
+            {
+                var node = CreateElement(doc, "mxdg:GridColumn");
+                AssignProperiesCore(node, column);
+                parent.AppendChild(node);
+            }
+        }
+
         #endregion
 
         #region Generate ViewModel
@@ -243,7 +269,7 @@ namespace WAConverter
             var builder = new StringBuilder();
             foreach (var fi in Fields)
             {
-                if (ShouldAddEditorValue(fi.Control))
+                if (ShouldAddEditorValue(fi.Control) || ShouldAddFocusedItem(fi.Control))
                     builder.AppendLine($"\t[ObservableProperty] {GetEditorValuePropertyType(fi.Control)} {AddSuffixToEditorValuePropertyName(fi.Control, fi.FieldName)};");
                 if (ShouldAddItemsSource(fi.Control))
                     builder.AppendLine($"\t[ObservableProperty] ObservableCollection<object> {fi.FieldName + "ItemsSource"};");
