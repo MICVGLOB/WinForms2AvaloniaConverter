@@ -30,7 +30,7 @@ Conversion of individual files is also useful for testing the converter.
 4. Specify the target version of the Eremex Avalonia UI controls using the `XamlConverter.controlsVersion` property.
 5. Build the WinForms2AvaloniaConverter library, or create a NuGet package for the WinForms2AvaloniaConverter library.
 6. Include the created library/NuGet package into your WinForms project that needs to be converted. Alternatively, you can include the source files of the WinForms2AvaloniaConverter library into your WinForms project.
-7. In your source project, inherit all `System.Windows.Forms.Form` objects from the `WAConverter.WAForm` class, and inherit all `System.Windows.Forms.UserControl` objects from the `WAConverter.UserControl` class.
+7. In your source project, inherit all `System.Windows.Forms.Form` objects from the `WAConverter.WAForm` class, and inherit all `System.Windows.Forms.UserControl` objects from the `WAConverter.WAUserControl` class.
 8. Run the project.
 9. Open all forms one by one at runtime, so the converter can analyze them. The converter recursively iterates through the Controls collection of each opened Form, and collects information about the names, position, size of the controls and their properties. After data is collected, it generates Avalonia UI files in the destination folder (see `./Bin/../Converted`).
 10. Copy code that was skipped during conversion to the destination project.
