@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Formatter</AssemblyName>
+    <RootNamespace>Formatter</RootNamespace>
+	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="WAConverter">
+      <HintPath>..\..\bin\Debug\net472\WAConverter.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
