@@ -14,6 +14,10 @@ The converter provides the following project migration features:
 
 The converter does not transfer business logic from code-behind, nor does it transfer code from additional _*.cs_ files in the source project. You need to copy this code manually to the Avalonia project.
 
+## Online Video
+
+- [WinForms2AvaloniaConverter](https://www.youtube.com/watch?v=XKk6p7CFUMQ) (Russian)
+
 ## Convert Projects or Individual Files
 
 For small projects that consist of a few forms, you can use the converter to migrate the entire project. Small projects are easier to check after conversion.
