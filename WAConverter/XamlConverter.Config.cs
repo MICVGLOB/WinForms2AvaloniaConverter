@@ -49,6 +49,7 @@ namespace WAConverter
                 { typeof(Form), "StackPanel" },
                 { typeof(UserControl), "StackPanel" },
                 { typeof(RootScrollViewer), "ScrollViewer" },
+                { typeof(StatusStrip), "mxb:Toolbar" }
 
             };
             editorValueSuffixMapping = new Dictionary<Type, string>
@@ -237,6 +238,10 @@ namespace WAConverter
             {
                 "Panel",
                 new string[,] { { "Height", "Height" },}
+            },
+            {
+                "mxb:Toolbar",
+                new string[] { }
             },
 };
 

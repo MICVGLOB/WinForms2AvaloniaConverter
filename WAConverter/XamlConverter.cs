@@ -170,6 +170,9 @@ namespace WAConverter
             if (control is GroupBox)
                 SetAttribute(currentNode, "Margin", "8");
 
+            if (control is StatusStrip)
+                SetAttribute(currentNode, "DisplayMode", "StatusBar");
+
             if (control is RadioButton radioButton)
                 AddRadioButtonAttributes(currentNode, radioButton, fi);
             if (control is TableLayoutPanel tableLayoutPanel)
