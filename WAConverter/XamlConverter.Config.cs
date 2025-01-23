@@ -9,9 +9,9 @@ namespace WAConverter
 {
     public partial class XamlConverter
     {
-        const string avaloniaVersion = "11.0.10";
+        const string avaloniaVersion = "11.2.2";
 
-        const string controlsVersion = "0.0.99-demo";
+        const string controlsVersion = "1.1.91";
 
         private string[] ignoredControls = new string[]
         {

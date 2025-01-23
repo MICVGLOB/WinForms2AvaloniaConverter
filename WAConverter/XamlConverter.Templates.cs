@@ -21,27 +21,6 @@ namespace WAConverter
             CreateAppFromTemplateCore(rootNamespace, "MainWindow.axaml.cs", controlsVersion, avaloniaVersion);
             CreateAppFromTemplateCore(rootNamespace, "nuget.config", controlsVersion, avaloniaVersion);
             CreateAppFromTemplateCore(rootNamespace, "Program.cs", controlsVersion, avaloniaVersion);
-
-            var packageName = $"Eremex.Avalonia.Controls.{controlsVersion}.nupkg";
-            try
-            {
-                var templateName = Assembly.GetAssembly(typeof(WAForm))
-                    .GetManifestResourceNames()
-                    .Single(x => x.EndsWith(packageName));
-                var resource = Assembly.GetAssembly(typeof(WAForm)).GetManifestResourceStream(templateName);
-                if (resource != null)
-                {
-                    var dir = Directory.GetCurrentDirectory() + "\\Converted\\packages\\";
-                    if (!Directory.Exists(dir))
-                        Directory.CreateDirectory(dir);
-                    using (FileStream fs = new FileStream(dir + packageName, FileMode.Create))
-                        resource.CopyTo(fs);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
         }
 
         private void CreateAppFromTemplateCore(string namespaceName, string templateName, string controlsVersion, string avaloniaVersion)
