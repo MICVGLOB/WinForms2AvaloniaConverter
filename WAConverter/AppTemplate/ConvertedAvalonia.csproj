@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
@@ -10,6 +10,7 @@
     <PackageReference Include="Avalonia" Version="@AvaloniaVersion@" />
     <PackageReference Include="Eremex.Avalonia.Controls" Version="@ControlsVersion@"/>
     <PackageReference Include="Eremex.Avalonia.Themes.DeltaDesign" Version="@ControlsVersion@"/>
+    <PackageReference Include="Eremex.DocumentProcessing" Version="@ControlsVersion@"/>
     <PackageReference Include="Avalonia.Desktop" Version="@AvaloniaVersion@" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="@AvaloniaVersion@" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="@AvaloniaVersion@" />
